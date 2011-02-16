@@ -1,0 +1,19 @@
+RESULT = fbase
+RESULTS = $(RESULT).cmxa
+
+.DEFAULT: $(RESULTS)
+
+FBASE_LIBRARY_SOURCES[] = \
+  data.mli data.ml \
+  error.mli error.ml \
+  info.mli info.ml \
+  util.mli util.ml
+
+OCamlLibrary($(RESULT), $(rootname $(FBASE_LIBRARY_SOURCES)))
+
+
+clean: 
+	$(CLEAN) $(RESULT).cma $(RESULTS) 
+
+distclean: 
+	$(DISTCLEAN) $(RESULT).cma $(RESULTS) 
