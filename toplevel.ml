@@ -17,7 +17,7 @@
 (* along with this program.  If not, see <http://www.gnu.org/licenses/>.      *)
 (******************************************************************************)
 (* /src/compiler/toplevel.ml                                                  *)
-(* Actual Frenetic front-end                                                  *)
+(* Real front-end                                                             *)
 (* $Id$ *)
 (******************************************************************************)
 
@@ -39,7 +39,7 @@ let go' prog () =
         let _ = Lexer.setup fn in 
         let lexbuf = Lexing.from_string (Util.read fn) in       
         let _ = 
-          try Parser.top Lexer.top lexbuf with 
+          try Parser.modl Lexer.main lexbuf with 
             | Parsing.Parse_error ->
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"

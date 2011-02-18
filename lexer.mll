@@ -63,48 +63,115 @@ let error lexbuf s =
 let keywords = Hashtbl.create 31
 let _ = 
   Data.List.iter (fun (kw,tok) -> Hashtbl.add keywords kw tok)
-    [ ("test", (fun i -> TEST i))
-    ; ("matches", (fun i -> MATCHES i))
+    [ ("module", (fun i -> MODULE i))
+    ; ("let", (fun i -> LET i)) 
+    ; ("in", (fun i -> IN i))
+    ; ("fun", (fun i -> FUN i))
+    ; ("begin", (fun i -> BEGIN i))
+    ; ("end", (fun i -> END i))
+    ; ("and", (fun i -> AND i))
+    ; ("test", (fun i -> TEST i))
+    ; ("match", (fun i -> MATCH i))
+    ; ("with", (fun i -> WITH i))
+    ; ("error", (fun i -> ERROR i))
+    ; ("char", (fun i -> CHAR i))
+    ; ("string", (fun i -> STRING i))
+    ; ("int", (fun i -> INT i))
+    ; ("bool", (fun i -> BOOL i))
+    ; ("unit", (fun i -> UNIT i))
+    ; ("type", (fun i -> TYPE i))
+    ; ("of", (fun i -> OF i))
+    ; ("where", (fun i -> WHERE i))
+    ; ("forall", (fun i -> FORALL i))
+    ; ("lt", (fun i -> LT i))
+    ; ("leq", (fun i -> LEQ i))
+    ; ("gt", (fun i -> GT i))
+    ; ("geq", (fun i -> GEQ i))
+    ; ("true", (fun i -> BOOLEAN(i,true)))
+    ; ("false", (fun i -> BOOLEAN(i,false)))
     ]
 }
 
 let whitespace = [' ' '\t']+
 let newline = "\n"
-let uidchar = ['A'-'Z']
-let idfirstchar = ['a'-'z' 'A'-'Z' '\'' '_' '-' '@']
-let idchar = ['a'-'z' 'A'-'Z' '0'-'9' '\'' '_' '-' '@']
-let intchar = ['0' - '9']
-let hexchar = ['0' - '9' 'A' - 'E' 'a' - 'e']
+let uid_char = ['A'-'Z']
+let id_char_first = ['a'-'z' 'A'-'Z' '\'' '_' '-' '@']
+let id_char_rest = ['a'-'z' 'A'-'Z' '0'-'9' '\'' '_' '-' '@']
+let int_char = ['0' - '9']
+let hex_char = ['0' - '9' 'A' - 'E' 'a' - 'e']
 let string = '"' [^'"']* '"'
 
-rule top = parse
-| whitespace         { top lexbuf }
+rule main = parse
+| whitespace         { main lexbuf }
+| "*)"               { error lexbuf "this is not the end of a comment" }
 | "("                { LPAREN(info lexbuf) }
 | ")"                { RPAREN(info lexbuf) }
+| ";"                { SEMI(info lexbuf) }
 | "."                { DOT(info lexbuf) }
-| "="                { EQUALS(info lexbuf) }
-| ","                { COMMA(info lexbuf) }
+| "&"                { AMPERSAND(info lexbuf) }
 | "*"                { STAR(info lexbuf) }
 | "-"                { MINUS(info lexbuf) }
+| "_"                { UNDERLINE(info lexbuf) }
+| "$"                { DOLLAR(info lexbuf) }
 | "+"                { PLUS(info lexbuf) }
+| "!"                { BANG(info lexbuf) }
+| "->"               { ARROW(info lexbuf) }
+| "=>"               { EQARROW(info lexbuf) }
+| "<=>"              { DEQARROW(info lexbuf) }
+| "<->"              { DARROW(info lexbuf) }
 | "|"                { BAR(info lexbuf) }
+| "="                { EQUAL(info lexbuf) }
 | "{"                { LBRACE(info lexbuf) }
 | "}"                { RBRACE(info lexbuf) }
+| "#"                { HASH(info lexbuf) }
+| "]"                { RBRACK(info lexbuf) }
+| "["                { LBRACK(info lexbuf) }
 | "<"                { LANGLE(info lexbuf) }
 | ">"                { RANGLE(info lexbuf) }
+| ","                { COMMA(info lexbuf) }
+| ":"                { COLON(info lexbuf) }
+| "^"                { HAT(info lexbuf) }
+| "~"                { TILDE(info lexbuf) }
+| "\\"               { BACKSLASH(info lexbuf) }
 | "?"                { QMARK(info lexbuf) }
 | "\""               { let i1 = info lexbuf in 
                        let i2,s = string "" lexbuf in 
                        let i = Info.imerge i1 i2 in 
                        STR(i,s) }
-| idfirstchar idchar* as ident { 
-      try let kw = Hashtbl.find keywords ident in
-          kw (info lexbuf)
-      with Not_found -> 
-        error lexbuf "unknown token" }
-| intchar+ as integ { INTEGER(info lexbuf, int_of_string integ) }
-| newline            { newline lexbuf; top lexbuf }
+
+| "'" ([^'\''] as c) "'" { 
+    CHARACTER(info lexbuf,c) 
+}
+
+| "'\\" { 
+  let c = escape [("'","'")] lexbuf in 
+  character c lexbuf 
+}
+
+| '\'' (id_char_first id_char_rest* as ident) { 
+  TYVARIDENT(info lexbuf, ident)
+}
+| id_char_first id_char_rest* as ident { 
+  try let kw = Hashtbl.find keywords ident in
+      kw (info lexbuf)
+  with Not_found -> 
+    if Char.uppercase ident.[0] = ident.[0] then 
+      UIDENT (info lexbuf, ident)
+    else 
+      LIDENT (info lexbuf, ident) 
+}
+| (uid_char id_char_rest* ".")+ id_char_rest+ as qident {
+  QUALIDENT(info lexbuf,qident)
+}
+| int_char+ as integ { 
+  INTEGER(info lexbuf, int_of_string integ) 
+}
+| (int_char* "." int_char+) as flot {
+  FLOAT(info lexbuf, float_of_string flot) 
+} 
+| newline            { newline lexbuf; main lexbuf }
 | eof                { EOF(info lexbuf) } 
+| "(*"               { comment lexbuf; main lexbuf }
 | _                  { error lexbuf "unknown token" }
 
 and string acc = parse
@@ -117,13 +184,19 @@ and string acc = parse
 | eof           { error lexbuf "unmatched '\"'"}
 | _             { string (acc ^ L.lexeme lexbuf) lexbuf }
 
+and character acc = parse 
+  | "'"         { if String.length acc <> 1 then error lexbuf "unmatched '''"
+                  else CHARACTER(info lexbuf,acc.[0]) }
+
+  | _           { error lexbuf "unmatched '''" }
+
 and escape el = parse
 | "\\"          { "\\" }
 | "b"           { "\008" }
 | "n"           { "\010" }
 | "r"           { "\013" }
 | "t"           { "\009" }
-| "0x" (hexchar as h1) (hexchar as h2)
+| "0x" (hex_char as h1) (hex_char as h2)
                 { let int_of_hex = function
                     | '0' -> 0 | '1' -> 1 | '2' -> 2 | '3' -> 3 | '4' -> 4
                     | '5' -> 5 | '6' -> 6 | '7' -> 7 | '8' -> 8 | '9' -> 9
@@ -132,9 +205,16 @@ and escape el = parse
                     | _ -> error lexbuf "in escape sequence" in 
                   String.make 1 (Char.chr (16 * int_of_hex h1 + int_of_hex h2))
                 }
-| intchar intchar intchar as c 
+
+| int_char int_char int_char as c 
                 { String.make 1 (Char.chr (int_of_string c)) }
-| _             { try 
-                    Data.List.assoc (L.lexeme lexbuf) el 
+| _             { try Data.List.assoc (L.lexeme lexbuf) el 
                   with Not_found -> 
                     error lexbuf "in escape sequence" }
+
+and comment = parse
+| "(*"             { comment lexbuf; comment lexbuf }
+| "*)"             { () }
+| newline          { newline lexbuf; comment lexbuf }
+| eof              { error lexbuf "unmatched '(*'" }
+| _                { comment lexbuf }

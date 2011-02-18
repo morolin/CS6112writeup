@@ -16,9 +16,38 @@
 (* You should have received a copy of the GNU General Public License          *)
 (* along with this program.  If not, see <http://www.gnu.org/licenses/>.      *)
 (******************************************************************************)
-(* /src/compiler/toplevel.mli                                                 *)
-(* Real front-end interface                                                   *)
+(* /src/compiler/id.ml                                                        *)
+(* Identifiers interface                                                      *)
 (* $Id$ *)
 (******************************************************************************)
 
-val go : string -> unit
+type t = Info.t * string
+(** the type of identifiers: a pair of parsing information and a string *)
+    
+val mk : Info.t -> string -> t
+(** [mk i s] constructs an identifier for [s] with parsing info [i]. *)
+
+val info_of_t : t -> Info.t
+(** [info_of_t x] returns the parsing info for [x]. *)
+
+val string_of_t : t -> string 
+(** [string_of_t x] returns the string that [x] represents. *)
+  
+val prime : t -> t 
+(** [prime x] returns [x']. *)
+  
+val compare : t -> t -> int
+(** [compare x y] compares [x] and [y], ignoring parsing info. *)
+
+val equal : t -> t -> bool
+(** [equal x y] returns [true] iff [x] and [y] represent the same
+    string. *)
+
+val wild : t
+(** [wild] is a constant representing the "don't care" string "_" *)
+
+module Set : Set.S with type elt = t
+(** Sets with identifiers as elements *)
+
+module Map : Map.S with type key = t
+(** Maps with identifiers as keys *)
