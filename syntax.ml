@@ -43,10 +43,11 @@ and scheme = Scheme of Id.Set.t * typ
 (* expressions *)
 and exp = 
   (* lambda calculus *)
-  | EApp  of Info.t * exp * exp 
-  | EVar  of Info.t * Id.t 
-  | EFun  of Info.t * param * typ option * exp 
-  | ELet  of Info.t * bind * exp 
+  | EApp of Info.t * exp * exp 
+  | EVar of Info.t * Id.t 
+  | EFun of Info.t * param * exp 
+  | ELet of Info.t * bind * exp 
+  | EAsc of Info.t * exp * typ 
   | EOver of Info.t * op * exp list
       
   (* with products, case *)
@@ -71,7 +72,7 @@ and op =
   | OGeq
 
 (* parameters *)
-and param = Param of Info.t * Id.t * typ option
+and param = Param of Info.t * pattern * typ option
 
 (* variable bindings *)
 and bind = Bind of Info.t * pattern * typ option * exp 
@@ -100,7 +101,7 @@ let (^>) s1 s2 = TFunction(s1,s2)
 let (^*) s1 s2 = TProduct(s1,s2)
 
 (* ----- accessor functions ----- *)
-let id_of_param p0 = match p0 with
+let pattern_of_param p0 = match p0 with
   | Param(_,x,_) -> x
 
 let typ_of_param p0 = match p0 with
@@ -116,8 +117,9 @@ let rec info_of_exp e = match e with
   | EApp(i,_,_) -> i
   | EOver(i,_,_) -> i
   | EVar(i,_) -> i
-  | EFun(i,_,_,_) -> i
+  | EFun(i,_,_) -> i
   | ELet(i,_,_) -> i 
+  | EAsc(i,_,_) -> i
   | EPair(i,_,_) -> i
   | ECase(i,_,_) -> i
   | EUnit(i) -> i
@@ -171,16 +173,17 @@ let mk_let i x s1 e1 e2 =
   let b = Bind(i,PVar(i,x,Some s1),None,e1) in 
   ELet(i,b,e2)
 
-let mk_fun i x tyo1 tyo2 e =
-  let p = Param(i,x,tyo1) in  
-  EFun(i,p,tyo2,e)
+let mk_asc i e t =
+  EAsc(i,e,t)
 
-let mk_multi_fun i ps e tyo = 
-  let f,_ = 
-    Data.List.fold_right
-      (fun p (f,tyo) -> (EFun(i,p,tyo,f),None))
-      ps (e,tyo) in 
-  f
+let mk_fun i x tyo e =
+  let p = Param(i,PVar(i,x,tyo),tyo) in  
+  EFun(i,p,e)
+
+let mk_multi_fun i ps e = 
+  Data.List.fold_right
+    (fun p f -> EFun(i,p,f))
+    ps e 
 
 let mk_if i e0 e1 e2 =
   let bs = [(PBool(i,true),e1);(PBool(i,false),e2)] in 

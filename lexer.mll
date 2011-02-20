@@ -160,7 +160,7 @@ rule main = parse
     else 
       LIDENT (info lexbuf, ident) 
 }
-| (uid_char id_char_rest* ".")? id_char_rest+ as qident {
+| (uid_char id_char_rest* ".")? id_char_first id_char_rest* as qident {
   try
     let n = String.index qident '.' in 
     let s1 = String.sub qident 0 n in 

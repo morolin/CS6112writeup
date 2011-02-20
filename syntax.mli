@@ -45,10 +45,11 @@ and scheme = Scheme of Id.Set.t * typ
 
 and exp = 
   (* lambda calculus *)
-  | EApp  of Info.t * exp * exp 
-  | EVar  of Info.t * Id.t 
-  | EFun  of Info.t * param * typ option * exp 
-  | ELet  of Info.t * bind * exp 
+  | EApp of Info.t * exp * exp 
+  | EVar of Info.t * Id.t 
+  | EFun of Info.t * param * exp 
+  | ELet of Info.t * bind * exp 
+  | EAsc of Info.t * exp * typ 
   | EOver of Info.t * op * exp list
       
   (* with products, case *)
@@ -73,7 +74,7 @@ and op =
   | OGeq
 (** Overloaded operator abstract syntax *)
 
-and param = Param of Info.t * Id.t * typ option
+and param = Param of Info.t * pattern * typ option
 (** Parameter abstract syntax *)
 
 and bind = Bind of Info.t * pattern * typ option * exp 
@@ -116,8 +117,8 @@ val info_of_module : modl -> Info.t
 val id_of_module : modl -> Id.t
 (** [id_of_module m] returns the name of module [m]. *)
 
-val id_of_param : param -> Id.t
-(** [typ_of_param p] returns the name of parameter [p]. *)
+val pattern_of_param : param -> pattern
+(** [pattern_of_param p] extracts a pattern from parameter [p]. *)
 
 val pat_of_binding : bind -> pattern
 (** [pat_of_binding b] returns the name of the variable bound in [b]. *)
@@ -130,13 +131,14 @@ val mk_unit : Info.t -> exp
 val mk_int : Info.t -> int -> exp 
 val mk_string : Info.t -> string -> exp 
 val mk_var : Id.t -> exp
-val mk_fun : Info.t -> Id.t -> typ option -> typ option -> exp -> exp
-val mk_multi_fun : Info.t -> param list -> exp -> typ option -> exp
+val mk_fun : Info.t -> Id.t -> typ option -> exp -> exp
+val mk_multi_fun : Info.t -> param list -> exp -> exp
 val mk_app : Info.t -> exp -> exp -> exp
 val mk_app3 : Info.t -> exp -> exp -> exp -> exp
 val mk_app4 : Info.t -> exp -> exp -> exp -> exp -> exp
 val mk_over : Info.t -> op -> exp list -> exp
 val mk_let : Info.t -> Id.t -> typ -> exp -> exp -> exp
+val mk_asc : Info.t -> exp -> typ -> exp
 val mk_if : Info.t -> exp -> exp -> exp -> exp 
 val mk_bin_op : Info.t -> exp -> exp -> exp -> exp
 val mk_tern_op : Info.t -> exp -> exp -> exp -> exp -> exp

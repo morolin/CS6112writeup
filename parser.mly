@@ -105,13 +105,14 @@ atyp:
 exp:
   | LET LIDENT param_list opt_typ EQUAL exp IN exp 
       { let i = me2 $1 $8 in 
-        let f = mk_multi_fun i $3 $6 $4 in 
+        let f = mk_multi_fun i $3 $6 in 
         let i2,s2 = $2 in 
-        let b = Bind(i,PVar(i2,(i2,None,s2),None),None,f) in 
+        let x = (i2,None,s2) in 
+        let b = Bind(i,PVar(i2,x,$4),None,f) in 
         ELet(i,b,$8) } 
-  | LET apat opt_typ EQUAL exp IN exp 
+  | LET pattern opt_typ EQUAL exp IN exp 
       { let i = me2 $1 $7 in 
-        let b = Bind(i,$2,None,$5) in 
+        let b = Bind(i,$2,$3,$5) in 
         ELet(i,b,$7) }
   | funexp
       { $1 }
@@ -119,7 +120,7 @@ exp:
 funexp:
   | FUN param_list opt_typ ARROW exp
       { let i = me2 $1 $5 in
-        mk_multi_fun i $2 $5 $3 }
+        mk_multi_fun i $2 $5 }
   | caseexp
       { $1 }
 
@@ -144,7 +145,13 @@ commaexp:
 
 equalexp:
  | appexp EQUAL appexp
-      { mk_over (me $1 $3) OEqual [$1; $3] }
+     { mk_over (me $1 $3) OEqual [$1; $3] }
+ | ascexp
+     { $1 }
+     
+ascexp:
+  | infixexp COLON typ
+      { mk_asc (me1 $1 $2) $1 $3 }
   | infixexp
       { $1 }
 
@@ -165,14 +172,15 @@ infixexp:
 minusexp:
   | infixexp MINUS appexp
       { mk_over (me $1 $3) OMinus [$1; $3] }
+
 ltexp:
   | appexp LT appexp 
       { mk_over (me $1 $3) OLt [$1; $3] }
-
+      
 leqexp:
   | appexp LEQ appexp 
       { mk_over (me $1 $3) OLeq [$1; $3] }
-
+      
 gtexp:
   | appexp GT appexp 
       { mk_over (me $1 $3) OGt [$1; $3] }
@@ -212,11 +220,11 @@ aexp:
 
 /* ---------- PARAMETERS ---------- */
 param: 
-  | lid 
-      { let i1,_,_ = $1 in 
-        Param(i1,$1,None) }
-  | LPAREN lid COLON typ RPAREN
-      { let i = m $1 $5 in 
+  | apat 
+      { let i = info_of_pattern $1 in 
+        Param(i,$1,None) }
+  | LPAREN pattern COLON typ RPAREN
+      { let i = info_of_pattern $2 in 
         Param(i,$2,Some $4) }
 
 param_list:
@@ -265,20 +273,22 @@ apat:
       { $2 }
 
 /* ---------- DECLARATIONS ---------- */
-decl:      
+decl:
   | LET LIDENT param_list opt_typ EQUAL exp 
       { let i = me2 $1 $6 in 
-        let f = mk_multi_fun i $3 $6 $4 in 
+        let f = mk_multi_fun i $3 $6 in 
         let i2,s2 = $2 in 
-        let b = Bind(i,PVar(i2,(i2,None,s2),None),None,f) in 
-        DLet(i,b) } 
-  | LET apat opt_typ EQUAL exp 
+        let x = (i2,None,s2) in 
+        let b = Bind(i,PVar(i2,x,$4),None,f) in 
+        DLet(i,b) }
+  | LET pattern opt_typ EQUAL exp 
       { let i = me2 $1 $5 in 
-        let b = Bind(i,$2,None,$5) in 
+        let b = Bind(i,$2,$3,$5) in 
         DLet(i,b) }
   | TYPE tvar_list lid EQUAL dtyp_list 
       { let i = m $1 $4 in 
         DType(i,$2,$3,$5) }      
+
 decls:
   | decl decls
       { $1::$2 }   

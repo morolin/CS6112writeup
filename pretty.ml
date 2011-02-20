@@ -84,14 +84,19 @@ let rec format_pattern = function
     msg ")@]"
 
 and format_param p0 = match p0 with
-  | Param(_,x,None) -> msg "@[%s@]" (Id.string_of_t x)
-  | Param(_,x,Some t) -> 
-    msg "@[(%s:" (Id.string_of_t x);
-    format_type t;    
+  | Param(_,p,None) -> 
+    msg "@[";
+    format_pattern p;
+    msg "@]";
+  | Param(_,p,Some t) -> 
+    msg "@[(";
+    format_pattern p;
+    msg ":";
+    format_type t;
     msg ")@]"
 
 and format_bind b0 = match b0 with
-  | Bind (_,p,tyo,e) ->
+  | Bind(_,p,tyo,e) ->
       msg "@[";
       format_pattern p;
       (match tyo with  
@@ -102,7 +107,7 @@ and format_bind b0 = match b0 with
       msg "@]"
         
 and format_exp e0 = match e0 with 
-  | EApp (_,e1,e2) ->
+  | EApp(_,e1,e2) ->
       msg "@[<2>(";
       format_exp e1;
       msg "@ ";
@@ -112,23 +117,28 @@ and format_exp e0 = match e0 with
   | EVar(_,x) -> 
       msg "@[%s@]" (Id.string_of_t x)
 	
-  | EFun (_,p,tyo,e) ->
+  | EFun(_,p,e) ->
       msg "@[<2>(fun@ ";
       format_param p;
-      (match tyo with
-	 | None -> ()
-         | Some s -> msg "@ :@ "; format_type s);
       msg "@ ->@ ";
       format_exp e;
       msg ")@]";
       
-  | ELet (_,b,e) ->
+  | ELet(_,b,e) ->
       msg "@[<2>let ";
       format_bind b;
       msg "@ in@ ";
       format_exp e;
       msg "@]";
-  | EOver (_,o,[e1;e2]) -> 
+
+  | EAsc(_,e,t) ->
+      msg "@[<2>(";
+      format_exp e;
+      msg "@ :@ ";
+      format_type t;
+      msg ")@]";
+
+  | EOver(_,o,[e1;e2]) -> 
     msg "@[<2>(";
     format_exp e1;
     msg "@ ";
