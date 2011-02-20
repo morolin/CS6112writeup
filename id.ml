@@ -32,7 +32,10 @@ let info_of_t (i,_,_) = i
 
 let module_of_t (_,m,_) = m
 
-let string_of_t (_,_,s) = s
+let string_of_t (_,m,s) = 
+  match m with 
+    | None -> s
+    | Some m' -> m' ^ "." ^ s
       
 (* comparisons *)
 let compare (_,mo1,s1) (_,mo2,s2) = 
