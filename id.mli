@@ -21,14 +21,20 @@
 (* $Id$ *)
 (******************************************************************************)
 
-type t = Info.t * string
-(** the type of identifiers: a pair of parsing information and a string *)
+type t = Info.t * string option * string
+(** the type of (qualified) identifiers: a triple consisting of
+    parsing information, an optional module, and the identifier
+    itself *)
     
-val mk : Info.t -> string -> t
-(** [mk i s] constructs an identifier for [s] with parsing info [i]. *)
+val mk : Info.t -> string option -> string -> t
+(** [mk i mo s] constructs an identifier for [s] under optional module
+    [mo] with parsing info [i]. *)
 
 val info_of_t : t -> Info.t
 (** [info_of_t x] returns the parsing info for [x]. *)
+
+val module_of_t : t -> string option 
+(** [module_of_t x] returns the optional module represented by [x]. *)
 
 val string_of_t : t -> string 
 (** [string_of_t x] returns the string that [x] represents. *)

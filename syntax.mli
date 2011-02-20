@@ -37,45 +37,57 @@ type typ =
     (* function types *)
     | TFunction of typ * typ 
     | TVar of Id.t                    (* variables *)
+
 (** Type abstract syntax *)
 
 and scheme = Scheme of Id.Set.t * typ 
 (** Type schemes abstract syntax *)
 
-and param = Param of Info.t * Id.t * typ
-(** Parameter abstract syntax *)
-
-and bind = Bind of Info.t * pat * typ option * exp 
-(** Binding abstract syntax *)
-
 and exp = 
-    (* lambda calculus *)
-    | EApp  of Info.t * exp * exp 
-    | EVar  of Info.t * Id.t 
-    | EFun  of Info.t * param * typ option * exp 
-    | ELet  of Info.t * bind * exp 
-
-    (* with products, case *)
-    | EPair of Info.t * exp * exp 
-    | ECase of Info.t * exp * (pat * exp) list 
-
-    (* unit, ints, characters, strings, bools  *)
-    | EUnit    of Info.t  
-    | EInteger of Info.t * int    
-    | EChar    of Info.t * char
-    | EString  of Info.t * string
-    | EBool of Info.t * bool 
+  (* lambda calculus *)
+  | EApp  of Info.t * exp * exp 
+  | EVar  of Info.t * Id.t 
+  | EFun  of Info.t * param * typ option * exp 
+  | ELet  of Info.t * bind * exp 
+  | EOver of Info.t * op * exp list
+      
+  (* with products, case *)
+  | EPair of Info.t * exp * exp 
+  | ECase of Info.t * exp * (pattern * exp) list 
+      
+  (* unit, ints, characters, strings, bools  *)
+  | EUnit    of Info.t  
+  | EInteger of Info.t * int    
+  | EChar    of Info.t * char
+  | EString  of Info.t * string
+  | EBool of Info.t * bool 
 (** Expression abstract syntax *)
 
-and pat = 
-  | PWld of Info.t
-  | PUnt of Info.t
-  | PBol of Info.t * bool
-  | PInt of Info.t * int
-  | PStr of Info.t * string
+and op =
+  | OSemi 
+  | OEqual
+  | OMinus
+  | OLt
+  | OLeq
+  | OGt
+  | OGeq
+(** Overloaded operator abstract syntax *)
+
+and param = Param of Info.t * Id.t * typ option
+(** Parameter abstract syntax *)
+
+and bind = Bind of Info.t * pattern * typ option * exp 
+(** Binding abstract syntax *)
+
+and pattern = 
+  | PWild of Info.t
+  | PUnit of Info.t
+  | PBool of Info.t * bool
+  | PInteger of Info.t * int
+  | PString of Info.t * string
   | PVar of Info.t * Id.t * typ option
-  | PVnt of Info.t * Id.t * pat option 
-  | PPar of Info.t * pat * pat
+  | PData of Info.t * Id.t * pattern option 
+  | PPair of Info.t * pattern * pattern
 (** Pattern abstract syntax *)
 
 type decl = 
@@ -95,7 +107,7 @@ val (^*) : typ -> typ -> typ
 val info_of_exp : exp -> Info.t
 (** [info_of_exp e] returns the parsing info associated to expression [e]. *)
 
-val info_of_pat : pat -> Info.t
+val info_of_pattern : pattern -> Info.t
 (** [info_of_pat p] returns the parsing info associated to pattern [p]. *)
 
 val info_of_module : modl -> Info.t
@@ -104,13 +116,10 @@ val info_of_module : modl -> Info.t
 val id_of_module : modl -> Id.t
 (** [id_of_module m] returns the name of module [m]. *)
 
-val typ_of_param : param -> typ
-(** [typ_of_param p] returns the typ declared with parameter [p]. *)
-
 val id_of_param : param -> Id.t
 (** [typ_of_param p] returns the name of parameter [p]. *)
 
-val pat_of_binding : bind -> pat
+val pat_of_binding : bind -> pattern
 (** [pat_of_binding b] returns the name of the variable bound in [b]. *)
 
 val exp_of_binding : bind -> exp
@@ -121,10 +130,12 @@ val mk_unit : Info.t -> exp
 val mk_int : Info.t -> int -> exp 
 val mk_string : Info.t -> string -> exp 
 val mk_var : Id.t -> exp
-val mk_fun : Info.t -> Id.t -> typ -> exp -> exp
+val mk_fun : Info.t -> Id.t -> typ option -> typ option -> exp -> exp
+val mk_multi_fun : Info.t -> param list -> exp -> typ option -> exp
 val mk_app : Info.t -> exp -> exp -> exp
 val mk_app3 : Info.t -> exp -> exp -> exp -> exp
 val mk_app4 : Info.t -> exp -> exp -> exp -> exp -> exp
+val mk_over : Info.t -> op -> exp list -> exp
 val mk_let : Info.t -> Id.t -> typ -> exp -> exp -> exp
 val mk_if : Info.t -> exp -> exp -> exp -> exp 
 val mk_bin_op : Info.t -> exp -> exp -> exp -> exp

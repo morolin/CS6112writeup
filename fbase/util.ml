@@ -59,3 +59,38 @@ let write file s =
       output_string ch s; close_out ch
     with e ->
       close_out ch; raise e
+
+let concat fold sep is_empty empty pretty structure = 
+  fold 
+    (fun acc h -> 
+       if is_empty acc then pretty h
+       else sep acc (pretty h))
+    empty 
+    structure 
+
+let concat_list sep l = 
+  concat
+    Data.List.fold_left
+    (fun x y -> Printf.sprintf "%s%s%s" x sep y)
+    (fun x -> String.length x = 0)
+    ""
+    (fun x -> x)
+    l
+
+let format_list sep f l =
+  let extract_thk = function 
+    | Some thk -> thk
+    | None -> (fun () -> ()) in
+  let thko =
+    concat
+      Data.List.fold_left
+      (fun x y -> 
+         Some (fun () -> 
+                 extract_thk x ();
+                 format sep;
+                 extract_thk y ()))
+      (fun x -> x = None)
+      None
+      (fun x -> Some (fun () -> f x))
+      l in 
+    extract_thk thko ()

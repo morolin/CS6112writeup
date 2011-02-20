@@ -149,7 +149,7 @@ rule main = parse
 }
 
 | '\'' (id_char_first id_char_rest* as ident) { 
-  TYVARIDENT(info lexbuf, ident)
+  TVIDENT(info lexbuf, ident)
 }
 | id_char_first id_char_rest* as ident { 
   try let kw = Hashtbl.find keywords ident in
@@ -160,8 +160,14 @@ rule main = parse
     else 
       LIDENT (info lexbuf, ident) 
 }
-| (uid_char id_char_rest* ".")+ id_char_rest+ as qident {
-  QUALIDENT(info lexbuf,qident)
+| (uid_char id_char_rest* ".")? id_char_rest+ as qident {
+  try
+    let n = String.index qident '.' in 
+    let s1 = String.sub qident 0 n in 
+    let s2 = String.sub qident (succ n) (String.length qident - n - 1) in 
+    (QIDENT(info lexbuf,Some s1,s2))                                                        
+  with Not_found -> 
+    QIDENT(info lexbuf,None,qident)
 }
 | int_char+ as integ { 
   INTEGER(info lexbuf, int_of_string integ) 

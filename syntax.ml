@@ -21,8 +21,6 @@
 (* $Id$ *)
 (******************************************************************************)
 
-let (@) = Data.List.append 
-
 (* types *)
 type typ = 
     (* base types *)
@@ -42,41 +40,52 @@ type typ =
 
 and scheme = Scheme of Id.Set.t * typ 
 
-(* parameters *)
-and param = Param of Info.t * Id.t * typ
-
-(* variable bindings *)
-and bind = Bind of Info.t * pat * typ option * exp 
-
 (* expressions *)
 and exp = 
-    (* lambda calculus *)
-    | EApp  of Info.t * exp * exp 
-    | EVar  of Info.t * Id.t 
-    | EFun  of Info.t * param * typ option * exp 
-    | ELet  of Info.t * bind * exp 
+  (* lambda calculus *)
+  | EApp  of Info.t * exp * exp 
+  | EVar  of Info.t * Id.t 
+  | EFun  of Info.t * param * typ option * exp 
+  | ELet  of Info.t * bind * exp 
+  | EOver of Info.t * op * exp list
+      
+  (* with products, case *)
+  | EPair of Info.t * exp * exp 
+  | ECase of Info.t * exp * (pattern * exp) list 
+      
+  (* unit, ints, characters, strings, bools  *)
+  | EUnit    of Info.t  
+  | EInteger of Info.t * int    
+  | EChar    of Info.t * char
+  | EString  of Info.t * string
+  | EBool of Info.t * bool 
 
-    (* with products, case *)
-    | EPair of Info.t * exp * exp 
-    | ECase of Info.t * exp * (pat * exp) list 
+(* overloaded operators *)
+and op =
+  | OSemi 
+  | OEqual
+  | OMinus
+  | OLt
+  | OLeq
+  | OGt
+  | OGeq
 
-    (* unit, ints, characters, strings, bools  *)
-    | EUnit    of Info.t  
-    | EInteger of Info.t * int    
-    | EChar    of Info.t * char
-    | EString  of Info.t * string
-    | EBool of Info.t * bool 
+(* parameters *)
+and param = Param of Info.t * Id.t * typ option
+
+(* variable bindings *)
+and bind = Bind of Info.t * pattern * typ option * exp 
 
 (* patterns *)
-and pat = 
-  | PWld of Info.t
-  | PUnt of Info.t
-  | PBol of Info.t * bool
-  | PInt of Info.t * int
-  | PStr of Info.t * string
+and pattern = 
+  | PWild of Info.t
+  | PUnit of Info.t
+  | PBool of Info.t * bool
+  | PInteger of Info.t * int
+  | PString of Info.t * string
   | PVar of Info.t * Id.t * typ option
-  | PVnt of Info.t * Id.t * pat option 
-  | PPar of Info.t * pat * pat
+  | PData of Info.t * Id.t * pattern option 
+  | PPair of Info.t * pattern * pattern
 
 (* declarations *)
 type decl = 
@@ -91,11 +100,11 @@ let (^>) s1 s2 = TFunction(s1,s2)
 let (^*) s1 s2 = TProduct(s1,s2)
 
 (* ----- accessor functions ----- *)
-let typ_of_param p0 = match p0 with
-  | Param(_,_,t) -> t
-
 let id_of_param p0 = match p0 with
   | Param(_,x,_) -> x
+
+let typ_of_param p0 = match p0 with
+  | Param(_,_,t) -> t
 
 let pat_of_binding b0 = match b0 with 
   | Bind(_,p,_,_) -> p
@@ -105,6 +114,7 @@ let exp_of_binding b0 = match b0 with
 
 let rec info_of_exp e = match e with 
   | EApp(i,_,_) -> i
+  | EOver(i,_,_) -> i
   | EVar(i,_) -> i
   | EFun(i,_,_,_) -> i
   | ELet(i,_,_) -> i 
@@ -116,15 +126,15 @@ let rec info_of_exp e = match e with
   | EChar(i,_) -> i 
   | EString(i,_) -> i
 
-let info_of_pat = function
-  | PWld(i) -> i
-  | PUnt(i) -> i
-  | PBol(i,_) -> i
-  | PInt(i,_) -> i
-  | PStr(i,_) -> i
+let info_of_pattern = function
+  | PWild(i) -> i
+  | PUnit(i) -> i
+  | PBool(i,_) -> i
+  | PInteger(i,_) -> i
+  | PString(i,_) -> i
   | PVar(i,_,_) -> i 
-  | PVnt(i,_,_) -> i
-  | PPar(i,_,_) -> i
+  | PData(i,_,_) -> i
+  | PPair(i,_,_) -> i
 
 let info_of_module = function
   | Modl(i,_,_) -> i
@@ -145,6 +155,9 @@ let mk_string i s =
 let mk_var x = 
   EVar(Id.info_of_t x,x)
 
+let mk_over i o l = 
+  EOver(i,o,l)
+
 let mk_app i e1 e2 = 
   EApp(i,e1,e2)
 
@@ -158,12 +171,19 @@ let mk_let i x s1 e1 e2 =
   let b = Bind(i,PVar(i,x,Some s1),None,e1) in 
   ELet(i,b,e2)
 
-let mk_fun i x s e1 =
-  let p = Param(i,x,s) in  
-  EFun(i,p,None,e1)
+let mk_fun i x tyo1 tyo2 e =
+  let p = Param(i,x,tyo1) in  
+  EFun(i,p,tyo2,e)
+
+let mk_multi_fun i ps e tyo = 
+  let f,_ = 
+    Data.List.fold_right
+      (fun p (f,tyo) -> (EFun(i,p,tyo,f),None))
+      ps (e,tyo) in 
+  f
 
 let mk_if i e0 e1 e2 =
-  let bs = [(PBol(i,true),e1);(PBol(i,false),e2)] in 
+  let bs = [(PBool(i,true),e1);(PBool(i,false),e2)] in 
   ECase(i,e0,bs)
 
 let mk_app i e1 e2 = 

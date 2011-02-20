@@ -21,6 +21,8 @@
 (* $Id$ *)
 (******************************************************************************)
 
+(** {2 Formatting} *)
+
 val format : ('a, Format.formatter, unit) format -> 'a
 (** Formats using the current formatting channel. *)
 
@@ -30,6 +32,16 @@ val flush : unit -> unit
 val format_to_string : (unit -> unit) -> string
 (** [format_to_string f] runs [f], redirecting formatting functions to
     the string returned as a result. *)
+
+val concat_list : string -> string list -> string
+  (** [concat_list sep l] concatenates a string list using [sep] to
+      separate elements *)
+
+val format_list : (unit, Format.formatter, unit) format -> ('a -> unit) -> 'a list -> unit
+  (** [format_list sep f l] formats [l] using [f] to format elements and
+      calls [sep] between elements *)
+
+(** {2 I/O} *)
 
 val read : string -> string
 (** [read f] reads [f] (or standard input if [f] is ["-"]) and returns

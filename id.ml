@@ -22,24 +22,33 @@
 (******************************************************************************)
 
 (* type for identifiers *) 
-type t = Info.t * string 
+type t = Info.t * string option * string
   
 (* constructor *)
-let mk i s = (i,s)
+let mk i mo s = (i,mo,s)
 
 (* accessors *)
-let info_of_t (i,_) = i
-let string_of_t (_,s) = s
-  
+let info_of_t (i,_,_) = i
+
+let module_of_t (_,m,_) = m
+
+let string_of_t (_,_,s) = s
+      
 (* comparisons *)
-let compare ((_,x1):t) ((_,x2):t) = compare x1 x2
-let equal ((_,x1):t) ((_,x2):t) = x1 = x2
+let compare (_,mo1,s1) (_,mo2,s2) = 
+  let cmp1 = compare mo1 mo2 in 
+  if cmp1 <> 0 then cmp1
+  else compare s1 s2
+
+let equal x1 x2 = compare x1 x2 = 0
 
 (* modifiers *)
-let prime (i,x) = (i,x ^ "'")
+let prime (i,mo,s) =
+  (i,mo,s ^ "'")
 
 (* constants *)
-let wild = (Info.M "_", "_")
+let wild = 
+  (Info.M "_", None, "_")
 
 type this_t = t
 

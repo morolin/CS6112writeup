@@ -38,12 +38,13 @@ let go' prog () =
       begin 
         let _ = Lexer.setup fn in 
         let lexbuf = Lexing.from_string (Util.read fn) in       
-        let _ = 
+        let ast = 
           try Parser.modl Lexer.main lexbuf with 
             | Parsing.Parse_error ->
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
                    (Info.string_of_t (Lexer.info lexbuf)))) in 
+        Pretty.format_modl ast;
         ()
       end
     | _ -> 
