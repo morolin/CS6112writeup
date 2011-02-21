@@ -43,8 +43,8 @@ and scheme = Scheme of Id.Set.t * typ
 (* expressions *)
 and exp = 
   (* lambda calculus *)
-  | EApp of Info.t * exp * exp 
   | EVar of Info.t * Id.t 
+  | EApp of Info.t * exp * exp 
   | EFun of Info.t * param * exp 
   | ELet of Info.t * bind * exp 
   | EAsc of Info.t * exp * typ 
