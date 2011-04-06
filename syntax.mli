@@ -29,6 +29,8 @@
 (* $Id$ *)
 (******************************************************************************)
 
+module StrSet : Set.S with type elt = string
+
 (** {2 Frenetic Abstract Syntax} *)
 type typ = 
     (* base types *)
@@ -150,3 +152,8 @@ val mk_asc : Info.t -> exp -> typ -> exp
 val mk_if : Info.t -> exp -> exp -> exp -> exp 
 val mk_bin_op : Info.t -> exp -> exp -> exp -> exp
 val mk_tern_op : Info.t -> exp -> exp -> exp -> exp -> exp
+
+val bound_v : pattern -> StrSet.t
+val type_ftv : typ -> StrSet.t
+val fv : exp -> StrSet.t
+val ftv : exp -> StrSet.t

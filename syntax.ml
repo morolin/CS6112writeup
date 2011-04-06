@@ -28,6 +28,11 @@
 (* Frenetic abstract syntax                                                   *)
 (* $Id$ *)
 (******************************************************************************)
+module StrSet = Set.Make(String)
+
+open BatOption
+
+exception UnimplementedException
 
 (* types *)
 type typ = 
@@ -205,3 +210,100 @@ let mk_bin_op i o e1 e2 =
 
 let mk_tern_op i o e1 e2 e3 = 
   mk_app i (mk_bin_op i o e1 e2) e3
+
+let rec bound_v pat = match pat with
+  | PWild(_)      -> StrSet.empty
+  | PUnit(_)      -> StrSet.empty
+  | PBool(_,_)    -> StrSet.empty
+  | PInteger(_,_) -> StrSet.empty
+  | PString(_,_)  -> StrSet.empty
+  | PVar(_,(_,m,name),_) -> StrSet.singleton name
+  | PData(_,_,pat_opt) -> BatOption.map_default bound_v StrSet.empty pat_opt
+  | PPair(_,p1,p2) -> StrSet.union (bound_v p1) (bound_v p2)
+
+let rec fv exp = match exp with
+  | EVar(_,(_, m, name)) -> StrSet.singleton name
+  | EApp (_, e1, e2) -> StrSet.union (fv e1) (fv e2)
+  | EFun (_, Param(_,pat,_), e) -> StrSet.diff (fv e) (bound_v pat)
+  | ELet (_, Bind(_,pat, _, e_bind), e) ->
+    StrSet.union (fv e_bind) (StrSet.diff (fv e) (bound_v pat))
+  | EAsc (_, exp, typ) -> fv exp
+  | EOver (_,_,_) -> raise UnimplementedException
+  
+  | EPair (_, e1, e2) -> StrSet.union (fv e1) (fv e2)
+  | ECase (_, m_exp, exps) ->
+    StrSet.union
+        (fv m_exp)
+        (List.fold_left
+            (fun acc (pat, e) ->
+                StrSet.union (StrSet.diff (fv e) (bound_v pat)) acc)
+            StrSet.empty exps)
+  
+  | EUnit(_)      -> StrSet.empty
+  | EInteger(_,_) -> StrSet.empty
+  | EChar(_,_)    -> StrSet.empty
+  | EString(_,_)  -> StrSet.empty
+  | EBool(_,_)    -> StrSet.empty
+
+let rec pattern_ftv pat = match pat with
+  | PWild(_)      -> StrSet.empty
+  | PUnit(_)      -> StrSet.empty
+  | PBool(_,_)    -> StrSet.empty
+  | PInteger(_,_) -> StrSet.empty
+  | PString(_,_)  -> StrSet.empty
+  | PVar(_,_,t_opt) -> BatOption.map_default type_ftv StrSet.empty t_opt
+  | PData(_,_,pat_opt) -> BatOption.map_default pattern_ftv StrSet.empty pat_opt
+  | PPair(_,p1,p2) -> StrSet.union (pattern_ftv p1) (pattern_ftv p2)
+
+and type_ftv typ = match typ with
+  | TUnit -> StrSet.empty
+  | TBool -> StrSet.empty
+  | TInteger -> StrSet.empty
+  | TChar -> StrSet.empty
+  | TString -> StrSet.empty
+
+  | TProduct(t1, t2) -> StrSet.union (type_ftv t1) (type_ftv t2)
+  | TData(ts, _) ->
+    List.fold_left
+        (fun set t -> StrSet.union set (type_ftv t))
+        StrSet.empty
+        ts
+
+  | TFunction(t1, t2) -> StrSet.union (type_ftv t1) (type_ftv t2)
+  | TVar((_,_,name)) -> StrSet.singleton name
+
+let rec ftv exp = match exp with
+  | EVar(_,_) -> StrSet.empty
+  | EApp (_, e1, e2) -> StrSet.union (ftv e1) (ftv e2)
+  | EFun (_,Param(_,pat,t_opt),e) ->
+    StrSet.union
+    (ftv e)
+    (StrSet.union
+        (pattern_ftv pat)
+        (BatOption.map_default type_ftv StrSet.empty t_opt)
+    )
+  | ELet (_,Bind(_,pat,t_opt,bind_e),e) ->
+    StrSet.union
+        (StrSet.union
+            (pattern_ftv pat)
+            (BatOption.map_default type_ftv StrSet.empty t_opt))
+        (StrSet.union
+            (ftv bind_e)
+            (ftv e))
+  | EAsc (_,e,t) -> StrSet.union (ftv e) (type_ftv t)
+  | EOver (_,_,_) -> raise UnimplementedException
+
+  | EPair (_,e1,e2) -> StrSet.union (ftv e1) (ftv e2)
+  | ECase (_, m_exp, exps) ->
+    StrSet.union
+        (ftv m_exp)
+        (List.fold_left
+            (fun acc (pat, e) ->
+                StrSet.union (StrSet.union (pattern_ftv pat) (ftv e)) acc)
+            StrSet.empty exps)
+
+  | EUnit (_)      -> StrSet.empty
+  | EInteger (_,_) -> StrSet.empty
+  | EChar (_,_)    -> StrSet.empty
+  | EString (_,_)  -> StrSet.empty
+  | EBool (_,_)    -> StrSet.empty

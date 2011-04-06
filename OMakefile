@@ -39,7 +39,7 @@ RESULT = frenetic
 NATIVE_ENABLED = true
 USE_OCAMLFIND = true
 OCAMLFLAGS    = -dtypes -rectypes
-OCAMLPACKS += num str unix
+OCAMLPACKS += num str unix batteries
 OCAMLYACC = ocamlyacc -v
 MAKE = make
 
@@ -68,7 +68,7 @@ FRENETIC_BASE_SOURCES[] = \
     pretty.mli pretty.ml \
     prefs.mli prefs.ml \
     parser.mly lexer.mll \
-    toplevel.ml 
+    toplevel.ml checker.ml
 
 FRENETIC_SOURCES = $(file $(FRENETIC_BASE_SOURCES)) frenetic.ml
 
