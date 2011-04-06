@@ -52,7 +52,7 @@ let syntax_error i s =
 %token <Info.t> MODULE OPEN OF TYPE 
 %token <Info.t> UNIT BOOL INT CHAR STRING FORALL WHERE
 %token <Info.t * string> STR UIDENT LIDENT TVIDENT
-%token <Info.t * string option  * string> QIDENT
+%token <Info.t * string * string> QIDENT
 %token <Info.t * char> CHARACTER
 %token <Info.t * int> INTEGER
 %token <Info.t * bool> BOOLEAN
@@ -205,7 +205,7 @@ appexp:
       { $1 }
 
 aexp:
-  | QIDENT
+  | qid
       { mk_var $1 }
   | CHARACTER
       { let i,c = $1 in 
@@ -329,6 +329,14 @@ tvid:
   | TVIDENT 
       { let i1,s1 = $1 in 
         (i1,None,s1) }
+
+qid:
+  | LIDENT
+      { let i1,s1 = $1 in 
+        (i1,None,s1) }
+  | QIDENT 
+      { let i1,s1,s2 = $1 in 
+         (i1,Some s1, s2) }
 
 /* ---------- BRANCHES ---------- */
 branch: 

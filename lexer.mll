@@ -191,14 +191,11 @@ rule main = parse
     else 
       LIDENT (info lexbuf, ident) 
 }
-| (uid_char id_char_rest* ".")? id_char_first id_char_rest* as qident {
-  try
+| (uid_char id_char_rest* ".") id_char_first id_char_rest* as qident {
     let n = String.index qident '.' in 
     let s1 = String.sub qident 0 n in 
     let s2 = String.sub qident (succ n) (String.length qident - n - 1) in 
-    (QIDENT(info lexbuf,Some s1,s2))                                                        
-  with Not_found -> 
-    QIDENT(info lexbuf,None,qident)
+    (QIDENT(info lexbuf,s1,s2))
 }
 | int_char+ as integ { 
   INTEGER(info lexbuf, int_of_string integ) 
