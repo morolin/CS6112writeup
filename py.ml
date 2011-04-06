@@ -24,49 +24,70 @@
 (* LICENSE file distributed with this work for specific language governing    *)
 (* permissions and limitations under the License.                             *)
 (******************************************************************************)
-(* /src/compiler/toplevel.ml                                                  *)
-(* Real front-end                                                             *)
+(* /src/compiler/py.ml                                                        *)
+(* Pretty printer for python output                                           *)
 (* $Id$ *)
 (******************************************************************************)
 
-let sprintf = Printf.sprintf
+(* ----- imports and abbreviations ----- *)
+open Syntax
+open Printf
 
-let arg_spec = 
-  [ ("-debug", Arg.String Prefs.add_debug_flag, ": print debugging information") ]
+exception PyException of string
 
-let usage prog = sprintf "Usage:\n    %s [options] F.fnet [F.fnet...]\n" prog
+let unimp()= failwith "unimplemented"
 
-let anon_cell = ref []
-let anon_arg x = anon_cell := (x::!anon_cell)
+let pybool b = match b with
+  | true -> "True"
+  | false -> "False"
 
-let go' prog () = 
-  Arg.parse arg_spec anon_arg (usage prog);
-  match !anon_cell with 
-    | [fn] -> 
-      begin 
-        let _ = Lexer.setup fn in 
-        let lexbuf = Lexing.from_string (Util.read fn) in       
-        let ast = 
-          try Parser.modl Lexer.main lexbuf with 
-            | Parsing.Parse_error ->
-              (Error.error
-                 (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
-                   (Info.string_of_t (Lexer.info lexbuf)))) in 
-		print_string (Py.format_modl ast);
-        ()
-      end
-    | _ -> 
-      begin 
-        Util.format "@[%s@]" (usage prog); 
-        exit 2  
-      end
-    
-let go prog =
-  try 
-    Unix.handle_unix_error 
-      (fun () -> Error.exit_if_error (go' prog))
-      ();
-    exit 0
-  with e -> 
-    Util.format "@[Uncaught exception %s@]" (Printexc.to_string e); 
-    exit 2
+let rec format_exp exp = match exp with
+  | EVar(_,(_,_,name)) -> name
+  | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
+  | EFun(_,Param(_,pat,_),exp) -> (match pat with
+    | PVar(_,(_,_,varname),_) ->
+      sprintf "(lambda %s : %s)" varname (format_exp exp)
+    | _ -> unimp()
+    )
+  | ELet (info,Bind(_,pat,typ,l_exp),exp) ->
+    format_exp (EApp(info,EFun(info,Param(info,pat,typ),exp),l_exp))
+  | EAsc(_,exp,_) -> format_exp exp
+  | EOver(_,_,_) ->
+  	raise (PyException "Overloaded Operator found during compilation")
+
+  | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
+  | ECase (_,_,_) -> unimp()
+
+  | EUnit(_) -> "()"
+  | EInteger(_,i) -> string_of_int i
+  | EChar(_,c) -> sprintf "\"%s\"" (Char.escaped c)
+  | EString (_,s) -> sprintf "\"%s\"" s
+  | EBool (_,b) -> pybool b
+
+let rec format_decl decl = match decl with
+  | DLet(_, Bind(_, pat, _, exp)) ->
+    (match pat with
+    | PWild(_) -> format_exp exp
+    | PUnit(_) ->
+        (* The assert ensures evaluation, so side effects will happen *)
+        sprintf "assert %s == %s\n" "()" (format_exp exp)
+    | PBool(_,b) ->
+        sprintf "assert %s == %s\n" (pybool b) (format_exp exp)
+    | PInteger(_,i) ->
+        sprintf "assert %s == %s\n" (string_of_int i) (format_exp exp)
+    | PString(_,s) ->
+        sprintf "assert \"%s\" == %s\n" s (format_exp exp)
+    | PVar(_, (_,_,varname),_) ->
+        sprintf "%s = %s\n" varname (format_exp exp)
+    | PData(_,_,_) -> unimp()
+    | PPair(_, pat1, pat2) -> unimp()
+    )
+  | DType(info, ids, id, _) -> unimp()
+
+
+let format_modl modl = match modl with
+  | Modl(_,_,decls) ->
+    List.fold_right
+        (fun decl file -> file  ^ "\n\n" ^ (format_decl decl))
+        decls
+        ""

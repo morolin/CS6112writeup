@@ -24,49 +24,13 @@
 (* LICENSE file distributed with this work for specific language governing    *)
 (* permissions and limitations under the License.                             *)
 (******************************************************************************)
-(* /src/compiler/toplevel.ml                                                  *)
-(* Real front-end                                                             *)
+(* /src/compiler/pretty.mli                                                   *)
+(* Pretty printer interface                                                   *)
 (* $Id$ *)
 (******************************************************************************)
 
-let sprintf = Printf.sprintf
+open Syntax
 
-let arg_spec = 
-  [ ("-debug", Arg.String Prefs.add_debug_flag, ": print debugging information") ]
-
-let usage prog = sprintf "Usage:\n    %s [options] F.fnet [F.fnet...]\n" prog
-
-let anon_cell = ref []
-let anon_arg x = anon_cell := (x::!anon_cell)
-
-let go' prog () = 
-  Arg.parse arg_spec anon_arg (usage prog);
-  match !anon_cell with 
-    | [fn] -> 
-      begin 
-        let _ = Lexer.setup fn in 
-        let lexbuf = Lexing.from_string (Util.read fn) in       
-        let ast = 
-          try Parser.modl Lexer.main lexbuf with 
-            | Parsing.Parse_error ->
-              (Error.error
-                 (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
-                   (Info.string_of_t (Lexer.info lexbuf)))) in 
-		print_string (Py.format_modl ast);
-        ()
-      end
-    | _ -> 
-      begin 
-        Util.format "@[%s@]" (usage prog); 
-        exit 2  
-      end
-    
-let go prog =
-  try 
-    Unix.handle_unix_error 
-      (fun () -> Error.exit_if_error (go' prog))
-      ();
-    exit 0
-  with e -> 
-    Util.format "@[Uncaught exception %s@]" (Printexc.to_string e); 
-    exit 2
+val format_modl : modl -> string
+val format_decl : decl -> string
+val format_exp : exp -> string
