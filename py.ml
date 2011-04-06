@@ -87,7 +87,7 @@ let rec format_decl decl = match decl with
 
 let format_modl modl = match modl with
   | Modl(_,_,decls) ->
-    List.fold_right
-        (fun decl file -> file  ^ "\n\n" ^ (format_decl decl))
-        decls
+    List.fold_left
+        (fun file decl -> file  ^ "\n\n" ^ (format_decl decl))
         ""
+        decls
