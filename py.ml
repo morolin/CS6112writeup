@@ -53,7 +53,7 @@ let rec format_exp exp = match exp with
     format_exp (EApp(info,EFun(info,Param(info,pat,typ),exp),l_exp))
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->
-  	raise (PyException "Overloaded Operator found during compilation")
+      raise (PyException "Overloaded Operator found during compilation")
 
   | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
   | ECase (_,_,_) -> unimp()

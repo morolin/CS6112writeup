@@ -29,6 +29,11 @@
 (* $Id$ *)
 (******************************************************************************)
 
+type 'a llist_t =
+    | Empty
+    | Node of 'a * 'a zlist_t
+and 'a zlist_t = 'a llist_t lazy_t
+
 (** {2 Formatting} *)
 
 val format : ('a, Format.formatter, unit) format -> 'a

@@ -31,25 +31,32 @@
 (*TODO(astory): useful errors*)
 module StringMap = Map.Make (String)
 include Syntax
+module TypeMap = Map.Make (
+  struct
+    let compare = compare
+    type t = typ
+   end )
 module ConstraintSet = Set.Make (
   struct
     let compare = compare
     type t = typ * typ
   end )
 
+open Util
+
+
 exception TypeException of (Info.t * string)
 
 type gammat = typ StringMap.t 
+type subst = gammat
 type constrt = ConstraintSet.t
-
-type 'a llist_t =
-    | Empty
-    | Node of 'a * 'a zlist_t
-and 'a zlist_t = 'a llist_t lazy_t
 
 let rec vars n = lazy (
     Node("a" ^ (string_of_int n), vars (n+1))
 )
+
+let stringMapSingleton k v =
+  StringMap.add k v StringMap.empty
 
 let rec get_first_fresh set llist =
     match Lazy.force(llist) with
@@ -75,6 +82,45 @@ let ceq t1 t2 = ConstraintSet.singleton (t1, t2)
 
 let c0 = ConstraintSet.empty
 
+let rec substitute typ sigma = match typ with 
+  | TUnit -> typ
+  | TBool -> typ
+  | TInteger -> typ
+  | TChar -> typ
+  | TString -> typ
+
+  | TProduct(t1, t2) -> TProduct((substitute t1 sigma),(substitute t2 sigma))
+  | TData(typs, id) -> failwith "unimplemented" (*TODO:help*)
+
+  | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
+  | TVar((_,_,name)) ->
+    if StringMap.mem name sigma then
+      StringMap.find name sigma
+    else
+      typ
+ 
+let sub_constraints sub constraints =
+  ConstraintSet.fold
+    (fun (t1, t2) set ->
+      ConstraintSet.add ((substitute t1 sub), (substitute t2 sub)) set)
+      constraints
+      ConstraintSet.empty
+
+(* Pierce, Types and Programming Languages, 2002, page 318
+                   [X -> sigma(T) for each (X->T) in gamma
+   sigma . gamma = [X -> T for each (X -> T) in sigma
+                   [                with X not in domain (gamma)*)
+let compose (sigma:subst) (gamma:subst) : subst =
+  let output = StringMap.map (fun typ -> substitute typ sigma) gamma in
+  StringMap.fold
+    (fun k v acc ->
+      if StringMap.mem k gamma then 
+        acc
+      else
+        StringMap.add k v acc)
+    sigma
+    output
+
 let rec unify cs =
     if ConstraintSet.is_empty cs then StringMap.empty
     else
@@ -84,9 +130,11 @@ let rec unify cs =
             unify cs'
         else match (s,t) with
           | (TVar(_,_,var), _) when not (fv var t) ->
-            StringMap.add var t (unify (cadd s t cs')) (*TODO(astory): ask about*)
+            let sub = stringMapSingleton var t in
+            compose (unify (sub_constraints sub cs')) sub
           | (_, TVar(_,_,var)) when not (fv var s) ->
-            StringMap.add var s (unify (cadd t s cs')) (*TODO(astory): ask about*)
+            let sub = stringMapSingleton var s in
+            compose (unify (sub_constraints sub cs')) sub
           | (TFunction(s1,s2),TFunction(t1,t2)) ->
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
           | _ -> raise (TypeException (Info.M (""), "Could not unify"))

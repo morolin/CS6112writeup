@@ -29,6 +29,11 @@
 (* $Id$ *)
 (******************************************************************************)
 
+type 'a llist_t =
+    | Empty
+    | Node of 'a * 'a zlist_t
+and 'a zlist_t = 'a llist_t lazy_t
+
 let current_formatter = ref Format.std_formatter
 
 let format f = Format.fprintf (!current_formatter) f
