@@ -44,3 +44,5 @@ val imerge : t -> t -> t
 val emerge : t -> t -> t
 (** [emerge i1 i2] merges the locations [i1] and [i2] into a new
     location excluding the endpoints. *)
+
+val dummy : string -> t

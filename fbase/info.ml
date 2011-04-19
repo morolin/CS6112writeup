@@ -41,6 +41,8 @@ let string_of_t i = match i with
       else Printf.sprintf "%sline %d, character %d, to line %d, character %d" f l1 c1 l2 c2
   | M s -> s
 
+let dummy s = M(s)
+
 let imerge i1 i2 = match i1,i2 with
     | I(f,p1,_),I(_,_,p2) -> I(f,p1,p2)
     | I(_),_ -> i1

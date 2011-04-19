@@ -69,7 +69,9 @@ FRENETIC_BASE_SOURCES[] = \
     prefs.mli prefs.ml \
     parser.mly lexer.mll \
     py.mli py.ml\
-    toplevel.ml checker.ml
+    conversion.ml\
+    checker.ml\
+    toplevel.ml
 
 FRENETIC_SOURCES = $(file $(FRENETIC_BASE_SOURCES)) frenetic.ml
 
