@@ -35,6 +35,12 @@ open Syntax
 
 type env = (string * exp) list
 
+let names_of_env s = 
+  Data.List.fold_left (fun acc (x,_) -> StrSet.add x acc) StrSet.empty s
+
+let string_of_env s = 
+  "{" ^ Util.concat_list ", " (Data.List.map (fun (x,e) -> x ^ " -> " ^ (Pretty.string_of_exp e)) s) ^ "}" 
+  
 let dummy = Info.dummy("dummy info")
 
 let fresh_cell = ref 0 
@@ -43,7 +49,7 @@ let get_fresh s =
   incr fresh_cell;
   s ^ (string_of_int !fresh_cell)
 
-let fresh () = get_fresh "x_"
+let fresh () = get_fresh "f_"
 
 let undersc () = get_fresh "_"
 
@@ -60,79 +66,92 @@ let rec names_of_pat pat = match pat with
     let s2 = names_of_pat p2 in 
     StrSet.union s1 s2
 
-let make_function info pat e =
-  EFun(info, Param(dummy,pat,None),e)
+let make_function i pat e =
+  EFun(i, Param(dummy,pat,None),e)
 
-let make_var info var_name =
-  EVar(info, (dummy,None, var_name))
+let make_var i var_name =
+  EVar(i, (dummy,None, var_name))
 
-let make_vpat info var_name =
-  PVar(info, (dummy, None, var_name), None)
+let make_vpat i var_name =
+  PVar(i, (dummy, None, var_name), None)
 
-let make_application info name e =
-  EApp(info, e, make_var info name) 
+let make_application i name e =
+  EApp(i, e, make_var i name) 
 
-let rec lift (e:exp)(s:env) = match e with
-  | EVar(_) -> (e, s)
-  | EApp(i,f,value) ->
-      let f', value', s' = lift2 f value s in 
-      (EApp(i, f', value'),s')
-  | EFun(i,Param(_,pat,_),exp) ->
-      let e1', s' = lift exp s in
-      let free = StrSet.diff (fv e1') (names_of_pat pat) in
-      let h = fresh() in
-      let base = make_function i pat e1' in 
-      let f = StrSet.fold
-          (fun name -> make_function i (make_vpat dummy name))
-          free
-          base
-        in
-      let s'' = (h,f) :: s' in
-      let free_l = StrSet.elements free in
-      let e' = List.fold_right (make_application i) free_l (make_var i h) in
-      (e', s'')
-  | ELet (i,Bind(_,pat,typ,l_exp),exp) ->
-    lift (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp)) s
-  | EAsc(_,exp,_) -> lift exp s
-  | EOver(_,_,_) ->
-    Error.simple_error "Overloaded Operator found during compilation"
-
-  | EPair(i,e1,e2) ->
-      let e1', e2', s' = lift2 e1 e2 s in
-      (EPair(i,e1',e2'),s')
-  | ECase (i,e,es) ->
+let rec convert_exp (top:bool) (e:exp) (s:StrSet.t) = 
+  match e with
+    | EVar(_) -> (e, [])
+    | EApp(i,e1,e2) ->
+      let e1', e2', ds = convert_exp2 top e1 e2 s in 
+      (EApp(i, e1', e2'),ds)
+    | EFun(i,Param(_,p,_),e1) ->
+      let xs = names_of_pat p in 
+      let e1', ds1 = convert_exp false e1 (StrSet.diff s xs) in
+      let base = make_function i p e1' in 
+      if top then (base,ds1) 
+      else 
+        let h = fresh () in
+        let free = StrSet.diff (fv e1') (StrSet.union xs s) in 
+        let f = 
+          StrSet.fold
+            (fun x -> make_function i (make_vpat dummy x))
+            free base in 
+        let free_l = StrSet.elements free in
+        let ds = (h,f) :: ds1 in 
+        let e' = List.fold_right (make_application i) free_l (make_var i h) in
+        (e', ds)
+    | ELet (i,Bind(_,pat,typ,l_exp),exp) ->
+      convert_exp false (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp)) s
+    | EAsc(_,exp,_) -> convert_exp top exp s
+    | EOver(_,_,_) ->
+      Error.simple_error "Overloaded Operator found during compilation" 
+        
+    | EPair(i,e1,e2) ->
+      let e1', e2', ds = convert_exp2 top e1 e2 s in
+      (EPair(i,e1',e2'),ds)
+    | ECase (i,e,es) ->
     (*
-    let e_name = undersc() in
-    let e_var = make_var dummy e_name in
-    let cases =
-      List.map (lambda (pat, exp) -> lift) es
-    in
-    ELet (i, Bind(dummy, make_vpat dummy e_name, cases)
+      let e_name = undersc() in
+      let e_var = make_var dummy e_name in
+      let cases =
+      List.map (lambda (pat, exp) -> convert_exp) es
+      in
+      ELet (i, Bind(dummy, make_vpat dummy e_name, cases)
     *)
-    Error.simple_error "Case unimplemented"
+      Error.simple_error "Case unimplemented"
+        
+    | EUnit(_) | EInteger(_) | EChar(_) | EString (_) | EBool (_) -> 
+      (e,[]) 
 
-  | EUnit(_) | EInteger(_) | EChar(_) | EString (_) | EBool (_) -> (e,s)
+and convert_exp2 top e1 e2 s =
+  let e1', ds1 = convert_exp top e1 s in
+  let e2', ds2 = convert_exp false e2 s in
+  (e1', e2', ds1 @ ds2)
 
-and lift2 e1 e2 s =
-  let (e1', s') = lift e1 s in
-  let (e2', s'') = lift e2 s' in
-  (e1', e2', s'')
+let mk_decl i f e = 
+  DLet(i,Bind(dummy,PVar(dummy,(dummy, None, f), None), None, e))
 
-let convert_exp (e : exp) =
-  lift e []
+let convert_decl (d:decl) (s:StrSet.t) = 
+  match d with
+    | DLet (i, Bind(_, p, _, e)) ->
+      let e', ds' = convert_exp true e s in
+      let s' = Data.List.fold_left (fun s (f,e) -> StrSet.add f s) s ds' in 
+      let s'' = StrSet.union s' (names_of_pat p) in 
+      let ds'' = 
+        List.fold_left
+          (fun decls (f,e) -> (mk_decl (Syntax.info_of_exp e) f e)::decls)
+          [DLet(i, Bind(dummy, p, None, e'))]
+          ds' in 
+      (ds'',s'')
+    | DType(_) -> Error.simple_error "dtype unimplemented"
 
-let convert_decl (d:decl) = match d with
-  | DLet (i, Bind(_, p, _, e)) ->
-    let e', s = convert_exp e in
-    List.fold_left
-      (fun decls (f, e) ->
-        DLet(i, Bind(dummy, PVar(dummy, (dummy, None, f), None), None, e)) :: decls)
-      [DLet(i, Bind(dummy, p, None, e'))]
-      s
-  | DType(_) -> Error.simple_error "dtype unimplemented"
+let convert_decls (ds:decl list) =
+  List.fold_left 
+    (fun (decls,s) d -> 
+      let decls',s' = convert_decl d s in 
+      (decls @ decls',s'))
+    ([],StrSet.empty) ds
 
-let convert_decls (ds : decl list) =
-  List.fold_left (fun acc d -> acc @ (convert_decl d)) [] ds
-
-let convert_module (Modl(i, m, decls)) =
-  Modl(i, m, convert_decls decls)
+let convert_module (Modl(i,m,decls)) =
+  let decls',_ = convert_decls decls in 
+  Modl(i,m,decls')

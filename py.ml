@@ -120,7 +120,8 @@ and format_exp exp = match exp with
   | EBool (_,b) -> pybool b
 
 let rec format_decl decl = match decl with
-  | DLet(_, Bind(_, pat, _, exp)) ->
+  | DLet(i, Bind(_, pat, _, exp)) ->
+    (sprintf "# %s\n" (Info.string_of_t i)) ^  
     (match pat with
     | PWild(_) -> format_exp exp
     | PUnit(_) ->
