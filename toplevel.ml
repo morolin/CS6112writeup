@@ -52,7 +52,8 @@ let go' prog () =
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
                    (Info.string_of_t (Lexer.info lexbuf)))) in 
-                   Checker.typecheck_modl ast;
+                   (*Checker.typecheck_modl ast;*)
+				   let ast = Conversion.convert_module ast in
                    print_string (Py.format_modl ast);
         ()
       end
