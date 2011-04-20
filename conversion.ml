@@ -63,7 +63,8 @@ let rec lift (e:exp)(s:env) = match e with
       let base = make_function i name e1' in 
       let f = StrSet.fold (make_function i) free base in
       let s'' = (h,f) :: s' in
-      let e' = StrSet.fold (make_application i) free (make_var i h) in
+      let free_l = StrSet.elements free in
+      let e' = List.fold_right (make_application i) free_l (make_var i h) in
       (e', s'')
 
   | ELet (i,Bind(_,pat,typ,l_exp),exp) ->
