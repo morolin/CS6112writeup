@@ -41,14 +41,42 @@ let pybool b = match b with
   | true -> "True"
   | false -> "False"
 
+let rec underscores n = lazy (
+    Util.Node("_" ^ (string_of_int n), underscores (n+1))
+)
+
+let rec get_u ll = match Lazy.force(ll) with
+  | Util.Empty -> failwith "unpossible!"
+  | Util.Node(s, l) -> (s, l)
+
+(* used tracks the various variables we've used for underscores since you can't
+ * have two variables with the same name in the same pattern.  We can recycle
+ * underscores between patterns though *)
+(* TODO(astory): enforce Unit, bool, etc.  This should probably also return a
+* list of conditions to check post-extraction *)
+let rec exp_pat_help fresh pat = match pat with
+  | PWild(_) -> get_u fresh
+  | PUnit(_) -> get_u fresh
+  | PBool(_) -> get_u fresh
+  | PInteger(_) -> get_u fresh
+  | PString(_) -> get_u fresh
+  | PVar(_,(_,_,varname),_) ->
+    (varname, fresh)
+  | PData(_) -> Error.simple_error "data in patterns not implemented yet"
+  | PPair(_, p1, p2) ->
+    let (s1, fresh') = exp_pat_help fresh p1 in
+    let (s2, fresh'') = exp_pat_help fresh' p2 in
+    (sprintf "(%s, %s)" s1 s2, fresh'')
+
+let expand_pattern pat =
+    let (s, _) = exp_pat_help (underscores 0) pat in
+    s
+
 let rec format_exp exp = match exp with
   | EVar(_,(_,_,name)) -> name
   | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
-  | EFun(_,Param(_,pat,_),exp) -> (match pat with
-    | PVar(_,(_,_,varname),_) ->
-      sprintf "(lambda %s : %s)" varname (format_exp exp)
-    | _ -> unimp()
-    )
+  | EFun(_,Param(_,pat,_),exp) ->
+    sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp)
   | ELet _ -> raise (PyException "Lets should not be in finished product")
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->
@@ -86,7 +114,7 @@ let rec format_decl decl = match decl with
 
 let format_modl modl = match modl with
   | Modl(_,_,decls) ->
-  	"from prelude import *\n" ^
+      "from prelude import *\n" ^
     List.fold_left
         (fun file decl -> file  ^ "\n" ^ (format_decl decl))
         ""

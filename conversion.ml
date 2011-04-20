@@ -42,11 +42,27 @@ let fresh () =
   incr fresh_cell;
   "x_" ^ (string_of_int !fresh_cell)
 
-let make_function info var_name e =
-  EFun(info, Param(dummy,PVar(dummy,(dummy,None,var_name),None),None),e)
+let rec names_of_pat pat = match pat with
+  | PWild(_) -> StrSet.empty
+  | PUnit(_) -> StrSet.empty
+  | PBool(_) -> StrSet.empty
+  | PInteger(_) -> StrSet.empty
+  | PString(_) -> StrSet.empty
+  | PVar(_,(_,_,varname),_) -> StrSet.singleton varname
+  | PData(_) -> Error.simple_error "data in patterns not implemented yet"
+  | PPair(_, p1, p2) ->
+    let s1 = names_of_pat p1 in 
+    let s2 = names_of_pat p2 in 
+    StrSet.union s1 s2
+
+let make_function info pat e =
+  EFun(info, Param(dummy,pat,None),e)
 
 let make_var info var_name =
   EVar(info, (dummy,None, var_name))
+
+let make_vpat info var_name =
+  PVar(info, (dummy, None, var_name), None)
 
 let make_application info name e =
   EApp(info, e, make_var info name) 
@@ -56,17 +72,20 @@ let rec lift (e:exp)(s:env) = match e with
   | EApp(i,f,value) ->
       let f', value', s' = lift2 f value s in 
       (EApp(i, f', value'),s')
-  | EFun(i,Param(_,PVar(_,(_,_,name),_),_),exp) ->
+  | EFun(i,Param(_,pat,_),exp) ->
       let e1', s' = lift exp s in
-      let free = StrSet.remove name (fv e1') in
+      let free = StrSet.diff (fv e1') (names_of_pat pat) in
       let h = fresh() in
-      let base = make_function i name e1' in 
-      let f = StrSet.fold (make_function i) free base in
+      let base = make_function i pat e1' in 
+      let f = StrSet.fold
+          (fun name -> make_function i (make_vpat dummy name))
+          free
+          base
+        in
       let s'' = (h,f) :: s' in
       let free_l = StrSet.elements free in
       let e' = List.fold_right (make_application i) free_l (make_var i h) in
       (e', s'')
-
   | ELet (i,Bind(_,pat,typ,l_exp),exp) ->
     lift (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp)) s
   | EAsc(_,exp,_) -> lift exp s
@@ -79,7 +98,6 @@ let rec lift (e:exp)(s:env) = match e with
   | ECase (_,_,_) -> Error.simple_error "Case unimplemented"
 
   | EUnit(_) | EInteger(_) | EChar(_) | EString (_) | EBool (_) -> (e,s)
-  | _ -> Error.simple_error "Unimplemented!"
 
 and lift2 e1 e2 s =
   let (e1', s') = lift e1 s in
