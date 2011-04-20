@@ -41,19 +41,15 @@ let pybool b = match b with
   | true -> "True"
   | false -> "False"
 
-let rec underscores n = lazy (
-    Util.Node("_" ^ (string_of_int n), underscores (n+1))
-)
+let pystring s = sprintf "\"%s\"" s
 
-let rec get_u ll = match Lazy.force(ll) with
-  | Util.Empty -> failwith "unpossible!"
-  | Util.Node(s, l) -> (s, l)
+let rec underscores = Util.count_prefix "_"
+
+let rec get_u = Util.get_lazy_string
 
 (* used tracks the various variables we've used for underscores since you can't
  * have two variables with the same name in the same pattern.  We can recycle
  * underscores between patterns though *)
-(* TODO(astory): enforce Unit, bool, etc.  This should probably also return a
-* list of conditions to check post-extraction *)
 let rec exp_pat_help fresh pat = match pat with
   | PWild(_) -> get_u fresh
   | PUnit(_) -> get_u fresh
@@ -72,7 +68,37 @@ let expand_pattern pat =
     let (s, _) = exp_pat_help (underscores 0) pat in
     s
 
-let rec format_exp exp = match exp with
+(* The idea with this function is to attempt to evaluate down the pattern tree,
+ * but if we run into difficulty, pass a None up the stack to serve as an error
+ * flag.  This is safe because None has no other usage in this compiler. *)
+let rec descend_pattern e_name (pat, exp) =
+    let fexp = format_exp exp in
+    match pat with
+    | PWild(_) -> fexp
+    | PUnit(_) ->
+      let valid = 
+        sprintf "(isinstance(%s, tuple) and len(%s) == 0)" e_name e_name in
+      sprintf "%s if %s else None" fexp valid
+    | PBool(_, value) ->
+      let valid = sprintf "(%s == %s)" e_name (pybool value) in
+      sprintf "%s if %s else None" fexp valid
+    | PInteger(_, value) -> 
+      let valid = sprintf "(%s == %s)" e_name (string_of_int value) in
+      sprintf "%s if %s else None" fexp valid
+    | PString(_, value) -> 
+      let valid = sprintf "(%s == %s)" e_name (pystring value) in
+      sprintf "%s if %s else None" fexp valid
+    | PVar(_, (_,_,varname),_) ->
+      sprintf "(lambda %s : fexp)(%s)" varname e_name
+    | PData(_) -> Error.simple_error "data in patterns not implemented yet"
+    (*| PPair(_, p1, p2) ->
+      let valid = "(isinstance(%s, tuple) and len(%s) == 2)" e_name e_name
+      sprintf "%s if %s else None" fexp valid *)
+
+and build_case e_name (pat, exp) next =
+    sprintf "_default(%s, %s)" next (descend_pattern e_name (pat, exp))
+
+and format_exp exp = match exp with
   | EVar(_,(_,_,name)) -> name
   | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
   | EFun(_,Param(_,pat,_),exp) ->
@@ -80,15 +106,17 @@ let rec format_exp exp = match exp with
   | ELet _ -> raise (PyException "Lets should not be in finished product")
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->
-      raise (PyException "Overloaded Operator found during compilation")
+    raise (PyException "Overloaded Operator found during compilation")
 
   | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
-  | ECase (_,_,_) -> unimp()
-
+  | ECase (_,e,es) ->
+    let e_name = Conversion.undersc() in
+    let cases = List.fold_right (build_case e_name) es "" in
+    sprintf "(lambda %s : %s)(%s)" e_name cases (format_exp e)
   | EUnit(_) -> "()"
   | EInteger(_,i) -> string_of_int i
-  | EChar(_,c) -> sprintf "\"%s\"" (Char.escaped c)
-  | EString (_,s) -> sprintf "\"%s\"" s
+  | EChar(_,c) -> sprintf "%s" (pystring (Char.escaped c))
+  | EString (_,s) -> sprintf "%s" (pystring s)
   | EBool (_,b) -> pybool b
 
 let rec format_decl decl = match decl with
@@ -103,7 +131,7 @@ let rec format_decl decl = match decl with
     | PInteger(_,i) ->
         sprintf "assert %s == %s\n" (string_of_int i) (format_exp exp)
     | PString(_,s) ->
-        sprintf "assert \"%s\" == %s\n" s (format_exp exp)
+        sprintf "assert %s == %s\n" (pystring s) (format_exp exp)
     | PVar(_, (_,_,varname),_) ->
         sprintf "%s = %s\n" varname (format_exp exp)
     | PData(_,_,_) -> unimp()

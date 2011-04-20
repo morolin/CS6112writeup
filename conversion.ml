@@ -38,9 +38,14 @@ type env = (string * exp) list
 let dummy = Info.dummy("dummy info")
 
 let fresh_cell = ref 0 
-let fresh () = 
+
+let get_fresh s =
   incr fresh_cell;
-  "x_" ^ (string_of_int !fresh_cell)
+  s ^ (string_of_int !fresh_cell)
+
+let fresh () = get_fresh "x_"
+
+let undersc () = get_fresh "_"
 
 let rec names_of_pat pat = match pat with
   | PWild(_) -> StrSet.empty
@@ -95,7 +100,16 @@ let rec lift (e:exp)(s:env) = match e with
   | EPair(i,e1,e2) ->
       let e1', e2', s' = lift2 e1 e2 s in
       (EPair(i,e1',e2'),s')
-  | ECase (_,_,_) -> Error.simple_error "Case unimplemented"
+  | ECase (i,e,es) ->
+    (*
+    let e_name = undersc() in
+    let e_var = make_var dummy e_name in
+    let cases =
+      List.map (lambda (pat, exp) -> lift) es
+    in
+    ELet (i, Bind(dummy, make_vpat dummy e_name, cases)
+    *)
+    Error.simple_error "Case unimplemented"
 
   | EUnit(_) | EInteger(_) | EChar(_) | EString (_) | EBool (_) -> (e,s)
 

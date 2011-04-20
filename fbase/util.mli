@@ -34,6 +34,10 @@ type 'a llist_t =
     | Node of 'a * 'a zlist_t
 and 'a zlist_t = 'a llist_t lazy_t
 
+val count_prefix : string -> int -> string zlist_t
+
+val get_lazy_string : 'a zlist_t -> 'a * ('a zlist_t)
+
 (** {2 Formatting} *)
 
 val format : ('a, Format.formatter, unit) format -> 'a

@@ -36,6 +36,14 @@ and 'a zlist_t = 'a llist_t lazy_t
 
 let current_formatter = ref Format.std_formatter
 
+let rec count_prefix prefix n = lazy(
+    Node(prefix ^ (string_of_int n), count_prefix prefix (n+1))
+)
+
+let get_lazy_string ll = match Lazy.force(ll) with
+  | Empty -> failwith "infinite list not actually infinite"
+  | Node(s, l) -> (s, l)
+
 let format f = Format.fprintf (!current_formatter) f
 
 let format_to_string f =
