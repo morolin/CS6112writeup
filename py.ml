@@ -49,8 +49,7 @@ let rec format_exp exp = match exp with
       sprintf "(lambda %s : %s)" varname (format_exp exp)
     | _ -> unimp()
     )
-  | ELet (info,Bind(_,pat,typ,l_exp),exp) ->
-    format_exp (EApp(info,EFun(info,Param(info,pat,typ),exp),l_exp))
+  | ELet _ -> raise (PyException "Lets should not be in finished product")
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->
       raise (PyException "Overloaded Operator found during compilation")
@@ -87,7 +86,8 @@ let rec format_decl decl = match decl with
 
 let format_modl modl = match modl with
   | Modl(_,_,decls) ->
+  	"from prelude import *\n" ^
     List.fold_left
-        (fun file decl -> file  ^ "\n\n" ^ (format_decl decl))
+        (fun file decl -> file  ^ "\n" ^ (format_decl decl))
         ""
         decls
