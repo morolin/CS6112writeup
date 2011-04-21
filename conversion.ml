@@ -82,6 +82,11 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
             (make_application i) 
             zs (make_var i h) in
         (e', (h,f) :: ds1') 
+    | ECond(i,e1,e2,e3) -> 
+      let e1',ds1' = convert_exp false vs e1 in 
+      let e2',ds2' = convert_exp false vs e2 in 
+      let e3',ds3' = convert_exp false vs e3 in 
+      (ECond(i,e1',e2',e3'),ds1' @ ds2' @ ds3')
     | ELet (i,Bind(_,pat,typ,l_exp),exp) ->
       convert_exp false vs (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp))
     | EAsc(_,e1,_) -> convert_exp top vs e1

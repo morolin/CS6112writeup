@@ -196,6 +196,8 @@ let rec typecheck_exp gamma expr =
             in
             let (t, constraints'') = typecheck_exp gamma' e in
             (TFunction(t1, t), cunion [constraints''; constraints']))
+    | ECond(i,e1,e2,e3) -> 
+      Error.simple_error "unimplemented"
     | ELet (info, bind, expr) ->
       (match bind with
         | Bind (info, pattern, typ, expr') ->

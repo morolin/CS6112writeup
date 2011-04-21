@@ -59,6 +59,7 @@ and exp =
   | EVar of Info.t * Id.t 
   | EApp of Info.t * exp * exp 
   | EFun of Info.t * param * exp 
+  | ECond of Info.t * exp * exp * exp 
   | ELet of Info.t * bind * exp 
   | EAsc of Info.t * exp * typ 
   | EOver of Info.t * op * exp list
@@ -131,6 +132,7 @@ let rec info_of_exp e = match e with
   | EOver(i,_,_) -> i
   | EVar(i,_) -> i
   | EFun(i,_,_) -> i
+  | ECond(i,_,_,_) -> i
   | ELet(i,_,_) -> i 
   | EAsc(i,_,_) -> i
   | EPair(i,_,_) -> i
@@ -242,6 +244,7 @@ let rec fv exp = match exp with
   | EVar(_,(_, m, name)) -> StrSet.singleton name
   | EApp (_, e1, e2) -> StrSet.union (fv e1) (fv e2)
   | EFun (_, Param(_,pat,_), e) -> StrSet.diff (fv e) (bv pat)
+  | ECond (_, e1,e2,e3) -> StrSet.union (StrSet.union (fv e1) (fv e2)) (fv e3)
   | ELet (_, Bind(_,pat, _, e_bind), e) ->
     StrSet.union (fv e_bind) (StrSet.diff (fv e) (bv pat))
   | EAsc (_, exp, typ) -> fv exp
@@ -318,7 +321,9 @@ let rec subst_exp e x e0 =
     else 
       let p',e1' = freshen p e1 in
       EFun(i,Param(i,p',t),subst_exp e x e1')
-      
+
+  | ECond(i,e1,e2,e3) -> 
+    ECond(i,subst_exp e x e1, subst_exp e x e2, subst_exp e x e3)
   | ELet(i,Bind(_,p,t,e1),e2) ->
     let e1' = subst_exp e x e1 in 
     let p',e2' = freshen p e2 in 
@@ -377,6 +382,8 @@ let rec ftv_exp exp = match exp with
         (ftv_pattern pat)
         (BatOption.map_default ftv StrSet.empty t_opt)
     )
+  | ECond (_,e1,e2,e3) -> 
+    StrSet.union (StrSet.union (ftv_exp e1) (ftv_exp e2)) (ftv_exp e3)
   | ELet (_,Bind(_,pat,t_opt,bind_e),e) ->
     StrSet.union
         (StrSet.union

@@ -58,6 +58,7 @@ and exp =
   | EVar of Info.t * Id.t 
   | EApp of Info.t * exp * exp 
   | EFun of Info.t * param * exp 
+  | ECond of Info.t * exp * exp * exp 
   | ELet of Info.t * bind * exp 
   | EAsc of Info.t * exp * typ 
   | EOver of Info.t * op * exp list

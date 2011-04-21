@@ -103,6 +103,8 @@ and format_exp exp = match exp with
   | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
   | EFun(_,Param(_,pat,_),exp) ->
     sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp)
+  | ECond(_,e1,e2,e3) -> 
+    sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3)
   | ELet _ -> raise (PyException "Lets should not be in finished product")
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->

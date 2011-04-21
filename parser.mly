@@ -59,7 +59,7 @@ let syntax_error i s =
 %token <Info.t * float> FLOAT
 %token <Info.t> HASH LBRACE RBRACE LBRACK RBRACK LPAREN RPAREN LANGLE RANGLE   
 %token <Info.t> ARROW DARROW DEQARROW EQARROW
-%token <Info.t> BEGIN END AND FUN LET IN TEST MATCH WITH
+%token <Info.t> BEGIN END AND FUN IF THEN ELSE LET IN TEST MATCH WITH
 %token <Info.t> SEMI COMMA DOT EQUAL COLON COLONCOLON BACKSLASH SLASH
 %token <Info.t> STAR RLUS BANG BAR DOLLAR PLUS MINUS UNDERLINE HAT TILDE AMPERSAND QMARK
 %token <Info.t> LT GT LEQ GEQ  
@@ -122,13 +122,15 @@ exp:
       { let i = me2 $1 $7 in 
         let b = Bind(i,$2,$3,$5) in 
         ELet(i,b,$7) }
-  | funexp
+  | funifexp
       { $1 }
 
-funexp:
+funifexp:
   | FUN param_list opt_typ ARROW exp
       { let i = me2 $1 $5 in
         mk_multi_fun i $2 $5 }
+  | IF exp THEN exp ELSE exp 
+      { ECond(me2 $1 $6,$2,$4,$6) }
   | caseexp
       { $1 }
 
