@@ -67,12 +67,12 @@ let rec get_first_fresh set llist =
 (* Generates a variable that is fresh in exp, and does not conflict with type or
 regular variables *)
 let fresh (info, exp) =
-    let fvs = StrSet.union (Syntax.fv exp) (Syntax.ftv exp) in
+    let fvs = StrSet.union (Syntax.fv exp) (Syntax.ftv_exp exp) in
     let var = get_first_fresh fvs (vars 0) in
     TVar(info, None, var)
 
 let fv var typ =
-    StrSet.mem var (Syntax.type_ftv typ)
+    StrSet.mem var (Syntax.ftv typ)
 
 let cunion = List.fold_left (ConstraintSet.union) ConstraintSet.empty
 
@@ -241,5 +241,5 @@ let typecheck_modl = function
     let constraints = ConstraintSet.empty in
     let (_, constraints') =
         List.fold_left typecheck_decl (gamma, constraints) ds in
-    let sigma = unify constraints' in
+    let _ = unify constraints' in
     ()
