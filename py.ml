@@ -64,57 +64,26 @@ let rec exp_pat_help fresh pat = match pat with
     let (s2, fresh'') = exp_pat_help fresh' p2 in
     (sprintf "(%s, %s)" s1 s2, fresh'')
 
+(* Note that this is _unsafe_.  It should only be used in circumstances where we
+ * know that the types will work out - i.e., not in case statments. *)
 let expand_pattern pat =
     let (s, _) = exp_pat_help (underscores 0) pat in
     s
 
-(* The idea with this function is to attempt to evaluate down the pattern tree,
- * but if we run into difficulty, pass a None up the stack to serve as an error
- * flag.  This is safe because None has no other usage in this compiler. *)
-let rec descend_pattern e_name (pat, exp) =
-    let fexp = format_exp exp in
-    match pat with
-    | PWild(_) -> fexp
-    | PUnit(_) ->
-      let valid = 
-        sprintf "(isinstance(%s, tuple) and len(%s) == 0)" e_name e_name in
-      sprintf "%s if %s else None" fexp valid
-    | PBool(_, value) ->
-      let valid = sprintf "(%s == %s)" e_name (pybool value) in
-      sprintf "%s if %s else None" fexp valid
-    | PInteger(_, value) -> 
-      let valid = sprintf "(%s == %s)" e_name (string_of_int value) in
-      sprintf "%s if %s else None" fexp valid
-    | PString(_, value) -> 
-      let valid = sprintf "(%s == %s)" e_name (pystring value) in
-      sprintf "%s if %s else None" fexp valid
-    | PVar(_, (_,_,varname),_) ->
-      sprintf "(lambda %s : fexp)(%s)" varname e_name
-    | PData(_) -> Error.simple_error "data in patterns not implemented yet"
-    (*| PPair(_, p1, p2) ->
-      let valid = "(isinstance(%s, tuple) and len(%s) == 2)" e_name e_name
-      sprintf "%s if %s else None" fexp valid *)
-
-and build_case e_name (pat, exp) next =
-    sprintf "_default(%s, %s)" next (descend_pattern e_name (pat, exp))
-
-and format_exp exp = match exp with
+let rec format_exp exp = match exp with
   | EVar(_,(_,_,name)) -> name
   | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
   | EFun(_,Param(_,pat,_),exp) ->
     sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp)
   | ECond(_,e1,e2,e3) -> 
     sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3)
-  | ELet _ -> raise (PyException "Lets should not be in finished product")
+  | ELet _ -> raise (PyException "Let found during compilation")
   | EAsc(_,exp,_) -> format_exp exp
   | EOver(_,_,_) ->
     raise (PyException "Overloaded Operator found during compilation")
 
   | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
-  | ECase (_,e,es) ->
-    let e_name = Conversion.undersc() in
-    let cases = List.fold_right (build_case e_name) es "" in
-    sprintf "(lambda %s : %s)(%s)" e_name cases (format_exp e)
+  | ECase (_,e,es) -> raise (PyException "Case found during compilation")
   | EUnit(_) -> "()"
   | EInteger(_,i) -> string_of_int i
   | EChar(_,c) -> sprintf "%s" (pystring (Char.escaped c))
