@@ -32,6 +32,7 @@
 module StrMap = Map.Make(String)
 
 open Syntax
+open Printf
 
 let dummy = Info.dummy("dummy info")
 
@@ -52,11 +53,77 @@ let make_function i pat e =
 let make_var i z =
   EVar(i, (dummy,None, z))
 
+let simple_var = make_var dummy
+
 let make_pvar i z =
   PVar(i, (dummy, None, z), None)
 
 let make_application i name e =
   EApp(i, e, make_var i name) 
+
+let simple_app e1 e2=
+    EApp(dummy, e1, e2)
+
+(* functions in prelude, to be moved to some other place in the future *)
+(* TODO(astory): move me! *)
+let globals = List.fold_left
+  (fun map (k, v) -> StrMap.add k v map)
+  StrMap.empty
+  [
+  ("_match_failure", simple_var "_match_failure");
+  ("land", simple_var "land");
+  ("_equals", simple_var "_equals");
+  ("_is_pair", simple_var "_is_pair");
+  ]
+
+let g_find name = StrMap.find name globals
+
+let match_exception(info) =
+    EApp(info,
+      g_find "_match_failure",
+      EString(dummy,
+        String.escaped (sprintf "Match_failure %s" (Info.string_of_t info)))
+    )
+
+let make_and e1 e2 =
+    simple_app (simple_app(g_find "land") e1) e2
+
+let make_equals (e1:exp) (e2:exp) =
+    simple_app
+      (simple_app (g_find "_equals") e1)
+      e2
+
+(* end of such functions *) 
+
+let rec make_match (pat:pattern) (e:exp) =
+    match pat with
+    | PWild(_) -> EBool(dummy, true)
+    | PUnit(_) -> make_equals e (EUnit(dummy))
+    | PBool(_, value) -> make_equals e (EBool(dummy, value))
+    | PInteger(_, value) -> make_equals e (EInteger(dummy, value))
+    | PString(_, value) -> make_equals e (EString(dummy, value))
+    | PVar(_) -> EBool(dummy, false)
+    | PData(_) -> Error.simple_error("PData not done yet")
+    | PPair(_, p1, p2) ->
+      (* Logic:
+       * Test if e is a pair.  If it isn't, return false.  If it is, then it's
+       * safe to use a Let statement to split it into its two halves, and then
+       * recursively check the two sub-{pattern,expression}s.
+       *)
+      let e1_name = undersc() in
+      let e2_name = undersc() in
+      make_and
+        (simple_app (g_find "_is_pair") e)
+        (ELet(
+          dummy,
+          Bind(dummy,
+            PPair(dummy, make_pvar dummy e1_name, make_pvar dummy e2_name),
+            None,
+            e),
+          make_and
+            (make_match p1 (simple_var e1_name))
+              (make_match p2 (simple_var e2_name))
+          ))
 
 let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) = 
   match e with
@@ -91,14 +158,25 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
       convert_exp false vs (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp))
     | EAsc(_,e1,_) -> convert_exp top vs e1
     | EOver(_,_,_) ->
-      Error.simple_error "Overloaded Operator found during compilation" 
+      Error.simple_error "Overloaded operator resolution not implemented" 
         
     | EPair(i,e1,e2) ->
       let e1',ds1' = convert_exp false vs e1 in 
       let e2',ds2' = convert_exp false vs e2 in 
       (EPair(i,e1',e2'),ds1' @ ds2')
     | ECase (i,e,es) ->
-      Error.simple_error "Case unimplemented"
+        let e_name = undersc() in
+        let e_pat = make_pvar dummy e_name in
+        let e_var = make_var dummy e_name in
+        let fold_case (pat, e) else_e =
+            let pat_sub_e = ELet(dummy, Bind(dummy, pat, None, e_var), e) in
+            ECond(dummy, make_match pat e_var, pat_sub_e, else_e)
+        in
+        let expr =
+            ELet(i, Bind(dummy, e_pat, None, e),
+                List.fold_right fold_case es (match_exception i)
+            ) in
+        convert_exp false vs expr
         
     | EUnit(_) | EInteger(_) | EChar(_) | EString (_) | EBool (_) -> 
       (e,[]) 

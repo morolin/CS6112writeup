@@ -111,10 +111,13 @@ let rec format_decl decl = match decl with
     )
   | DType(info, ids, id, _) -> unimp()
 
+let make_import k _ rest =
+  (sprintf "from prelude import %s as %s\n" k k) ^ rest
 
 let format_modl modl = match modl with
   | Modl(_,_,decls) ->
-      "from prelude import *\n" ^
+    let imports = Conversion.StrMap.fold (make_import) Conversion.globals "" in
+    imports ^
     List.fold_left
         (fun file decl -> file  ^ "\n" ^ (format_decl decl))
         ""
