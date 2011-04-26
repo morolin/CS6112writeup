@@ -19,5 +19,11 @@ def _match_failure(info):
 def _is_pair(x):
 	return isinstance(x, tuple) and len(x) == 2
 
+def _isinstance(a):
+  return (lambda b : isinstance(a, b))
+
+def _value(a):
+  return a.value
+
 def _equals(a):
 	return (lambda b : a == b)

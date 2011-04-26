@@ -74,6 +74,8 @@ let globals = List.fold_left
   ("land", simple_var "land");
   ("_equals", simple_var "_equals");
   ("_is_pair", simple_var "_is_pair");
+  ("_isinstance", simple_var "_isinstance");
+  ("_value", simple_var "_value");
   ]
 
 let g_find name = StrMap.find name globals
@@ -87,6 +89,9 @@ let match_exception(info) =
 
 let make_and e1 e2 =
     simple_app (simple_app(g_find "land") e1) e2
+
+let make_instance e1 e2 =
+    simple_app (simple_app(g_find "_isinstance") e1) e2
 
 let make_equals (e1:exp) (e2:exp) =
     simple_app
@@ -103,7 +108,16 @@ let rec make_match (pat:pattern) (e:exp) =
     | PInteger(_, value) -> make_equals e (EInteger(dummy, value))
     | PString(_, value) -> make_equals e (EString(dummy, value))
     | PVar(_) -> EBool(dummy, false)
-    | PData(_) -> Error.simple_error("PData not done yet")
+    | PData(_,(_,_,name), pat_opt) -> 
+      (* logic:  check that e is of the same type as name, and then recurse with
+      pattern on e.value *)
+      let safe = make_instance (simple_var name) e in
+      (match pat_opt with
+      | Some pat ->
+        make_and
+          safe
+          (make_match pat (simple_app (g_find "_value") e))
+      | None -> safe)
     | PPair(_, p1, p2) ->
       (* Logic:
        * Test if e is a pair.  If it isn't, return false.  If it is, then it's
@@ -198,7 +212,7 @@ let convert_decl (d:decl) (vs:StrSet.t) =
           [DLet(i, Bind(dummy, p, None, e'))]
           ds' in 
       (ds'',vs')
-    | DType(_) -> Error.simple_error "dtype unimplemented"
+    | DType(_) -> ([d], vs)
 
 let convert_decls (ds:decl list) =
   List.fold_left 

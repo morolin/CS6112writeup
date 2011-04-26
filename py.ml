@@ -70,17 +70,25 @@ let expand_pattern pat =
     let (s, _) = exp_pat_help (underscores 0) pat in
     s
 
+let make_base_class (_,_,name) =
+  (sprintf "class %s(object):\n" name) ^
+  (sprintf "\tpass\n")
+
+(* TODO(astory): consider changing value to a property *)
+let make_type (_,_,parent) ((_,_,name), _) = 
+  (sprintf "class %s(%s):\n" name parent) ^
+  (sprintf "\tdef __init__(self, value):\n") ^
+  (sprintf "\t\tself.value = value\n")
+
+let make_type_decl parent constructors =
+    List.fold_left
+      (fun s constr -> s ^ (make_type parent constr))
+      (make_base_class parent)
+      constructors
+
 let rec format_exp exp = match exp with
   | EVar(_,(_,_,name)) -> name
-  | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
-  | EFun(_,Param(_,pat,_),exp) ->
-    sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp)
-  | ECond(_,e1,e2,e3) -> 
-    sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3)
-  | ELet _ -> raise (PyException "Let found during compilation")
-  | EAsc(_,exp,_) -> format_exp exp
-  | EOver(_,_,_) ->
-    raise (PyException "Overloaded Operator found during compilation")
+  | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value) | EFun(_,Param(_,pat,_),exp) -> sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp) | ECond(_,e1,e2,e3) -> sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3) | ELet _ -> raise (PyException "Let found during compilation") | EAsc(_,exp,_) -> format_exp exp | EOver(_,_,_) -> raise (PyException "Overloaded Operator found during compilation")
 
   | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
   | ECase (_,e,es) -> raise (PyException "Case found during compilation")
@@ -106,10 +114,11 @@ let rec format_decl decl = match decl with
         sprintf "assert %s == %s\n" (pystring s) (format_exp exp)
     | PVar(_, (_,_,varname),_) ->
         sprintf "%s = %s\n" varname (format_exp exp)
-    | PData(_,_,_) -> unimp()
+    | PData(_,(_,_,name),pat_opt) -> unimp()
     | PPair(_, pat1, pat2) -> unimp()
     )
-  | DType(info, ids, id, _) -> unimp()
+  | DType(info, _, name, constructors) ->
+    make_type_decl name constructors
 
 let make_import k _ rest =
   (sprintf "from prelude import %s as %s\n" k k) ^ rest
