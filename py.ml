@@ -98,9 +98,10 @@ let rec format_exp exp = match exp with
   | EString (_,s) -> sprintf "%s" (pystring s)
   | EBool (_,b) -> pybool b
 
-let rec format_decl decl = match decl with
-  | DLet(i, Bind(_, pat, _, exp)) ->
-    (sprintf "# %s\n" (Info.string_of_t i)) ^  
+let rec format_decl decl = 
+  (sprintf "# %s\n" ((Info.string_of_t (info_of_decl decl)))) ^  
+  match decl with
+  | DLet(_, Bind(_, pat, _, exp)) ->
     (match pat with
     | PWild(_) -> format_exp exp
     | PUnit(_) ->
@@ -117,7 +118,7 @@ let rec format_decl decl = match decl with
     | PData(_,(_,_,name),pat_opt) -> unimp()
     | PPair(_, pat1, pat2) -> unimp()
     )
-  | DType(info, _, name, constructors) ->
+  | DType(_, _, name, constructors) ->
     make_type_decl name constructors
 
 let make_import k _ rest =

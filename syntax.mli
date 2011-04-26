@@ -125,6 +125,9 @@ val info_of_pattern : pattern -> Info.t
 val info_of_module : modl -> Info.t
 (** [info_of_module m] returns the parsing info associated to module [m]. *)
 
+val info_of_decl : decl -> Info.t
+(** [info_of_decl d] returns the parsing info associated to declaration [d]. *)
+
 val id_of_module : modl -> Id.t
 (** [id_of_module m] returns the name of module [m]. *)
 

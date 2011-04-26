@@ -154,7 +154,7 @@ commaexp:
       { $1 }
 
 equalexp:
- | appexp EQUAL appexp
+ | dexp EQUAL dexp
      { mk_over (me $1 $3) OEqual [$1; $3] }
  | ascexp
      { $1 }
@@ -176,35 +176,45 @@ infixexp:
       { $1 }
   | geqexp
       { $1 }
-  | appexp
+  | dexp
       { $1 }
 
 minusexp:
-  | infixexp MINUS appexp
+  | infixexp MINUS dexp
       { mk_over (me $1 $3) OMinus [$1; $3] }
 
 ltexp:
-  | appexp LT appexp 
+  | dexp LT dexp 
       { mk_over (me $1 $3) OLt [$1; $3] }
       
 leqexp:
-  | appexp LEQ appexp 
+  | dexp LEQ dexp 
       { mk_over (me $1 $3) OLeq [$1; $3] }
       
 gtexp:
-  | appexp GT appexp 
+  | dexp GT dexp 
       { mk_over (me $1 $3) OGt [$1; $3] }
 
 geqexp:
-  | appexp GEQ appexp 
+  | dexp GEQ dexp 
       { mk_over (me $1 $3) OGeq [$1; $3] }
+
+dexp:
+  | uid aexp 
+      { let i1,_,_ = $1 in 
+        mk_app (me2 i1 $2) (mk_var $1) $2 }
+  | uid 
+      { let i1,_,_ = $1 in 
+        mk_app i1 (mk_var $1) (EUnit i1) }
+  | appexp
+      { $1 }
 
 appexp:
   | appexp aexp                         
       { mk_app (me $1 $2) $1 $2 }
-
   | aexp
       { $1 }
+
 
 aexp:
   | qid

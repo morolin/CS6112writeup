@@ -131,6 +131,15 @@ and format_exp e0 = match e0 with
       msg "@ ->@ ";
       format_exp e;
       msg ")@]";
+
+  | ECond(_,e1,e2,e3) ->
+      msg "@[<2>if@ ";
+      format_exp e1;
+      msg "@ then@ ";
+      format_exp e2;
+      msg "@ else@ ";
+      format_exp e3;
+      msg "@]";
       
   | ELet(_,b,e) ->
       msg "@[<2>let ";

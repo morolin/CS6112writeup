@@ -153,6 +153,10 @@ let info_of_pattern = function
   | PData(i,_,_) -> i
   | PPair(i,_,_) -> i
 
+let info_of_decl = function
+  | DLet(i,_) -> i
+  | DType(i,_,_,_) -> i
+
 let info_of_module = function
   | Modl(i,_,_) -> i
 

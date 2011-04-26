@@ -153,7 +153,12 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
       if top then (f1,ds1')
       else 
         let h = fresh () in
-        let zs = StrSet.elements (StrSet.diff (fv e1') (StrSet.union vs (bv p))) in 
+        let zs = 
+          StrSet.elements 
+            (StrSet.diff (fv e1') 
+               (StrSet.union 
+                  (Data.List.fold_left (fun vs (f,_) -> StrSet.add f vs) vs ds1')
+                  (bv p))) in 
         let f = 
           List.fold_left 
             (fun f z -> make_function i (make_pvar dummy z) f)
