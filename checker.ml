@@ -44,6 +44,7 @@ module ConstraintSet = Set.Make (
 
 open Util
 
+let dummy = Info.dummy("dummy info")
 
 exception TypeException of (Info.t * string)
 
@@ -91,6 +92,8 @@ let rec substitute typ sigma = match typ with
 
   | TProduct(t1, t2) -> TProduct((substitute t1 sigma),(substitute t2 sigma))
   | TData(typs, id) -> failwith "unimplemented" (*TODO:help*)
+  (* NOTE: I think the problem is that I don't really understand what
+  substitution here is supposed to do *)
 
   | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
   | TVar((_,_,name)) ->
@@ -152,12 +155,20 @@ let rec assign_types (gamma, constraints) info pattern t =
           | None -> (StringMap.add s t gamma, constraints))
       (*| PData (info, id, pattern) *)
       | PPair (info, p1, p2) ->
-          (match t with
-            | TProduct(t1, t2) ->
-                let (gamma', constraints') =
-                    assign_types (gamma, constraints) info p1 t1 in
-                assign_types (gamma', constraints') info p2 t2
-            | _ -> raise (TypeException(info, "type is not a product")))
+        (* NOTE: is this a safe way to get type variables?  Won't they conflict
+        at the union step? *)
+        let fvs = StrSet.union (Syntax.ftv t) in
+        let t1_name = get_first_fresh fvs (vars 0) in
+        let fvs' = StrSet.add t1_name fvs
+        let t2_name = get_first_fresh fvs' (vars 0) in
+        let fvs'' = StrSet.add t1_name fvs' in
+        let t1 = TVar(info,None,t1_name) in
+        let t2 = TVar(info,None,t2_name) in
+        let (gamma', constraints') =
+            assign_types (gamma, constraints) info p1 t1 in
+        let (gamma'', constraints'') =
+            assign_types (gamma', constraints') info p2 t2 in
+        (gamma'', cunion [constraints''; ceq t TPair(info,t1,t2)
       | _ -> raise (TypeException(info, "PData not supported"))
 
 
@@ -191,12 +202,12 @@ let rec typecheck_exp gamma expr =
               | Some t -> ceq t1 t
               | None -> c0) in
             let (gamma', constraints') =
-                (* TODO(astory): make work for pairs without explicitness *)
                 assign_types (gamma, constraints) param_info pattern t1
             in
             let (t, constraints'') = typecheck_exp gamma' e in
             (TFunction(t1, t), cunion [constraints''; constraints']))
     | ECond(i,e1,e2,e3) -> 
+      (* This may or may not exist in actual input *)
       let (t1, c1) = typecheck_exp gamma e1 in
       let (t2, c2) = typecheck_exp gamma e2 in
       let (t3, c3) = typecheck_exp gamma e3 in
