@@ -197,7 +197,16 @@ let rec typecheck_exp gamma expr =
             let (t, constraints'') = typecheck_exp gamma' e in
             (TFunction(t1, t), cunion [constraints''; constraints']))
     | ECond(i,e1,e2,e3) -> 
-      Error.simple_error "unimplemented"
+      let (t1, c1) = typecheck_exp gamma e1 in
+      let (t2, c2) = typecheck_exp gamma e2 in
+      let (t3, c3) = typecheck_exp gamma e3 in
+      let constraints' =
+        cunion [
+          c1; c2; c3;
+          ceq t1 TBool;
+          ceq t2 t3]
+      in
+      (t2, constraints')
     | ELet (info, bind, expr) ->
       (match bind with
         | Bind (info, pattern, typ, expr') ->
@@ -209,7 +218,7 @@ let rec typecheck_exp gamma expr =
       let (expr_t, constraints) = typecheck_exp gamma expr in
       (expr_t, cadd expr_t typ constraints)
     | EOver (info, op, exprs) ->
-        raise (TypeException(info, "Overloaded operators not implemented"))
+       raise (TypeException(info, "Overloaded operators not implemented"))
 
     | EPair (info, expr1, expr2) ->
       let (typ1, constraints1) =
