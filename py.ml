@@ -58,7 +58,7 @@ let rec exp_pat_help fresh pat = match pat with
   | PString(_) -> get_u fresh
   | PVar(_,(_,_,varname),_) ->
     (varname, fresh)
-  | PData(_) -> Error.simple_error "data in patterns not implemented yet"
+  | PData(_) -> raise (PyException "Data appeared in pattern")
   | PPair(_, p1, p2) ->
     let (s1, fresh') = exp_pat_help fresh p1 in
     let (s2, fresh'') = exp_pat_help fresh' p2 in
@@ -88,7 +88,12 @@ let make_type_decl parent constructors =
 
 let rec format_exp exp = match exp with
   | EVar(_,(_,_,name)) -> name
-  | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value) | EFun(_,Param(_,pat,_),exp) -> sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp) | ECond(_,e1,e2,e3) -> sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3) | ELet _ -> raise (PyException "Let found during compilation") | EAsc(_,exp,_) -> format_exp exp | EOver(_,_,_) -> raise (PyException "Overloaded Operator found during compilation")
+  | EApp(_,f,value) -> sprintf "%s(%s)" (format_exp f) (format_exp value)
+  | EFun(_,Param(_,pat,_),exp) -> sprintf "(lambda %s : %s)" (expand_pattern pat) (format_exp exp)
+  | ECond(_,e1,e2,e3) -> sprintf "(%s if %s else %s)" (format_exp e2) (format_exp e1) (format_exp e3)
+  | ELet _ -> raise (PyException "Let found during compilation")
+  | EAsc(_,exp,_) -> format_exp exp
+  | EOver(_,_,_) -> raise (PyException "Overloaded Operator found during compilation")
 
   | EPair(_,e1,e2) -> sprintf "(%s, %s)" (format_exp e1) (format_exp e2)
   | ECase (_,e,es) -> raise (PyException "Case found during compilation")

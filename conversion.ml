@@ -100,6 +100,12 @@ let make_equals (e1:exp) (e2:exp) =
 
 (* end of such functions *) 
 
+let rec has_data (pat:pattern) =
+  match pat with
+  | PData(_) -> true
+  | PPair(_,p1, p2) -> (has_data p1) || (has_data p2)
+  | _ -> false
+
 let rec make_match (pat:pattern) (e:exp) =
     match pat with
     | PWild(_) -> EBool(dummy, true)
@@ -147,27 +153,34 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
       let e1',ds1' = convert_exp false vs e1 in 
       let e2',ds2' = convert_exp false vs e2 in 
       (EApp(i, e1', e2'), ds1' @ ds2')
-    | EFun(i,Param(_,p,_),e1) ->
-      let e1', ds1' = convert_exp top vs e1 in 
-      let f1 = make_function i p e1' in 
-      if top then (f1,ds1')
-      else 
-        let h = fresh () in
-        let zs = 
-          StrSet.elements 
-            (StrSet.diff (fv e1') 
-               (StrSet.union 
-                  (Data.List.fold_left (fun vs (f,_) -> StrSet.add f vs) vs ds1')
-                  (bv p))) in 
-        let f = 
-          List.fold_left 
-            (fun f z -> make_function i (make_pvar dummy z) f)
-            f1 zs in 
-        let e' = 
-          List.fold_right 
-            (make_application i) 
-            zs (make_var i h) in
-        (e', (h,f) :: ds1') 
+    | EFun(i,Param(pi,p,pto),e1) ->
+      if (has_data p) then
+        let varname = undersc() in
+        let exp = EFun(i, Param(pi, make_pvar dummy varname, pto),
+          ECase(dummy, simple_var varname, [(p,e1)])
+          ) in
+        convert_exp top vs exp
+      else
+        let e1', ds1' = convert_exp top vs e1 in 
+        let f1 = make_function i p e1' in 
+        if top then (f1,ds1')
+        else 
+          let h = fresh () in
+          let zs = 
+            StrSet.elements 
+              (StrSet.diff (fv e1') 
+                 (StrSet.union 
+                    (Data.List.fold_left (fun vs (f,_) -> StrSet.add f vs) vs ds1')
+                    (bv p))) in 
+          let f = 
+            List.fold_left 
+              (fun f z -> make_function i (make_pvar dummy z) f)
+              f1 zs in 
+          let e' = 
+            List.fold_right 
+              (make_application i) 
+              zs (make_var i h) in
+          (e', (h,f) :: ds1') 
     | ECond(i,e1,e2,e3) -> 
       let e1',ds1' = convert_exp false vs e1 in 
       let e2',ds2' = convert_exp false vs e2 in 
@@ -203,20 +216,26 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
 let mk_decl i f e = 
   DLet(i,Bind(dummy,PVar(dummy,(dummy, None, f), None), None, e))
 
-let convert_decl (d:decl) (vs:StrSet.t) = 
+let rec convert_decl (d:decl) (vs:StrSet.t) = 
   match d with
-    | DLet (i, Bind(_,p,_,e)) -> 
-      let vs' = match p with 
-        | PVar(_,(_,None,x),_) -> StrSet.add x vs 
-        | _ -> vs in 
-      let e', ds' = convert_exp true vs' e in
-      let ds'' = 
-        List.fold_left
-          (fun decls (h,f) -> 
-            (mk_decl (Syntax.info_of_exp f) h f)::decls)
-          [DLet(i, Bind(dummy, p, None, e'))]
-          ds' in 
-      (ds'',vs')
+    | DLet (i, Bind(bi,p,bto,e)) -> 
+      if (has_data p) then
+        let fresh_var = undersc() in
+        let exp = ECase(dummy, simple_var fresh_var, [(p,e)]) in
+        let d = DLet (i, Bind(bi, make_pvar dummy fresh_var, bto, exp)) in
+        convert_decl d vs
+      else
+        let vs' = match p with 
+          | PVar(_,(_,None,x),_) -> StrSet.add x vs 
+          | _ -> vs in 
+        let e', ds' = convert_exp true vs' e in
+        let ds'' = 
+          List.fold_left
+            (fun decls (h,f) -> 
+              (mk_decl (Syntax.info_of_exp f) h f)::decls)
+            [DLet(i, Bind(dummy, p, None, e'))]
+            ds' in 
+        (ds'',vs')
     | DType(_) -> ([d], vs)
 
 let convert_decls (ds:decl list) =
