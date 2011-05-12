@@ -83,6 +83,19 @@ let ceq t1 t2 = ConstraintSet.singleton (t1, t2)
 
 let c0 = ConstraintSet.empty
 
+let free_vars (e:exp) =
+  let symbols = Syntax.fv e in
+  let rec vars n = 
+    let name = "t"^(string_of_int n) in
+    if StrSet.mem name symbols then vars (n+1) else
+      Node(name, lazy(vars (n+1)))
+  in vars 0
+
+let lazy_get ll = 
+  match Lazy.force(!ll) with
+    | Empty -> failwith "List not infinite"
+    | Node (i, ls) -> ll := ls; (i,ls)
+
 let rec substitute typ sigma = match typ with 
   | TUnit -> typ
   | TBool -> typ
@@ -141,7 +154,7 @@ let rec unify cs =
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
           | _ -> raise (TypeException (Info.M (""), "Could not unify"))
 
-let rec assign_types (gamma, constraints) info pattern t =
+let rec assign_types names (gamma, constraints) info pattern t =
     match pattern with
       | PWild (info') -> (gamma, constraints)
       | PUnit (info') -> (gamma, cadd TUnit t constraints)
@@ -154,8 +167,6 @@ let rec assign_types (gamma, constraints) info pattern t =
           | None -> (StringMap.add s t gamma, constraints))
       (*| PData (info, id, pattern) *)
       | PPair (info, p1, p2) ->
-        (* NOTE: is this a safe way to get type variables?  Won't they conflict
-        at the union step? *)
         let fvs = Syntax.ftv t in
         let t1_name = get_first_fresh fvs (vars 0) in
         let fvs' = StrSet.add t1_name fvs in
@@ -163,15 +174,15 @@ let rec assign_types (gamma, constraints) info pattern t =
         let t1 = TVar(info,None,t1_name) in
         let t2 = TVar(info,None,t2_name) in
         let (gamma', constraints') =
-            assign_types (gamma, constraints) info p1 t1 in
+            assign_types names (gamma, constraints) info p1 t1 in
         let (gamma'', constraints'') =
-            assign_types (gamma', constraints') info p2 t2 in
+            assign_types names (gamma', constraints') info p2 t2 in
         (gamma'', cunion [constraints''; ceq t (TProduct(t1,t2))])
       | _ -> raise (TypeException(info, "PData not supported"))
 
 
 (* for now, just return type of underlying expression.  Later, need to modify ast*)
-let rec typecheck_exp gamma expr =
+let rec typecheck_exp free gamma expr =
   match expr with
     | EVar (info, id) ->
       let s = Id.string_of_t id in
@@ -182,9 +193,9 @@ let rec typecheck_exp gamma expr =
     | EApp (info, expr1, expr2) ->
       let resultant_type = fresh (info, expr) in
       let (typ1, constraints1) =
-          typecheck_exp gamma expr1 in
+          typecheck_exp free gamma expr1 in
       let (typ2, constraints2) =
-          typecheck_exp gamma expr2 in
+          typecheck_exp free gamma expr2 in
       let constraints' =
           cunion [
               constraints1;
@@ -200,15 +211,14 @@ let rec typecheck_exp gamma expr =
               | Some t -> ceq t1 t
               | None -> c0) in
             let (gamma', constraints') =
-                assign_types (gamma, constraints) param_info pattern t1
+                assign_types free (gamma, constraints) param_info pattern t1
             in
-            let (t, constraints'') = typecheck_exp gamma' e in
+            let (t, constraints'') = typecheck_exp free gamma' e in
             (TFunction(t1, t), cunion [constraints''; constraints']))
     | ECond(i,e1,e2,e3) -> 
-      (* This may or may not exist in actual input *)
-      let (t1, c1) = typecheck_exp gamma e1 in
-      let (t2, c2) = typecheck_exp gamma e2 in
-      let (t3, c3) = typecheck_exp gamma e3 in
+      let (t1, c1) = typecheck_exp free gamma e1 in
+      let (t2, c2) = typecheck_exp free gamma e2 in
+      let (t3, c3) = typecheck_exp free gamma e3 in
       let constraints' =
         cunion [
           c1; c2; c3;
@@ -219,21 +229,21 @@ let rec typecheck_exp gamma expr =
     | ELet (info, bind, expr) ->
       (match bind with
         | Bind (info, pattern, typ, expr') ->
-          let (expr'_t, constraints) = typecheck_exp gamma expr' in
+          let (expr'_t, constraints) = typecheck_exp free gamma expr' in
           let (gamma', constraints') =
-                assign_types (gamma, constraints) info pattern expr'_t in
-          typecheck_exp gamma' expr)
+                assign_types free (gamma, constraints) info pattern expr'_t in
+          typecheck_exp free gamma' expr)
     | EAsc (info, expr, typ) ->
-      let (expr_t, constraints) = typecheck_exp gamma expr in
+      let (expr_t, constraints) = typecheck_exp free gamma expr in
       (expr_t, cadd expr_t typ constraints)
     | EOver (info, op, exprs) ->
        raise (TypeException(info, "Overloaded operators not implemented"))
 
     | EPair (info, expr1, expr2) ->
       let (typ1, constraints1) =
-          typecheck_exp gamma expr1 in
+          typecheck_exp free gamma expr1 in
       let (typ2, constraints2) =
-          typecheck_exp gamma expr2 in
+          typecheck_exp free gamma expr2 in
       (TProduct (typ1, typ2), cunion [constraints1; constraints2])
     | ECase (info, expr1, pat_exprs) ->
       raise (TypeException(info, "Case operator not implemented"))
@@ -249,8 +259,9 @@ let typecheck_decl (gamma, constraints) decl =
     | DLet (info, bind) ->
       (match bind with 
         | Bind (info, pattern, typopt, exp) ->
-          let (t, constraints) = typecheck_exp gamma exp in
-          assign_types (gamma, constraints) info pattern t)
+          let free = ref (free_vars exp) in
+          let (t, constraints) = typecheck_exp free gamma exp in
+          assign_types free (gamma, constraints) info pattern t)
     | DType (info, ids, id, labels) ->
       (*TODO(astory)*)
       (gamma, constraints)
