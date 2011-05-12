@@ -90,11 +90,10 @@ let rec substitute typ sigma = match typ with
   | TChar -> typ
   | TString -> typ
 
-  | TProduct(t1, t2) -> TProduct((substitute t1 sigma),(substitute t2 sigma))
-  | TData(typs, id) -> failwith "unimplemented" (*TODO:help*)
-  (* NOTE: I think the problem is that I don't really understand what
-  substitution here is supposed to do *)
-
+  | TProduct(t1, t2) ->
+  	TProduct((substitute t1 sigma),(substitute t2 sigma))
+  | TData(typs, id) ->
+  	TData(List.map (fun t -> substitute t sigma) typs, id)
   | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
   | TVar((_,_,name)) ->
     if StringMap.mem name sigma then
