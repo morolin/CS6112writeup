@@ -145,6 +145,47 @@ let rec make_match (pat:pattern) (e:exp) =
               (make_match p2 (simple_var e2_name))
           ))
 
+(* Recurse through a pattern, find all the data types and replace them with
+ * variables, and keep track of everything you did this for, with enough data to
+ * re-constitute it, i.e., a list of varname * PData(...).
+ *)
+let rec extract_data:
+      pattern -> pattern * (string * pattern) list =
+  fun pat -> match pat with
+  | PWild(_)
+  | PUnit(_)
+  | PBool(_)
+  | PInteger(_)
+  | PString(_)
+  | PVar(_) -> (pat, [])
+  | PData(info, id, pat_opt) ->
+    let var = undersc() in
+    let p = make_pvar info var in
+    (p, [(var, pat)])
+  | PPair(info, p1, p2) ->
+    let new1, vars1 = extract_data p1 in
+    let new2, vars2 = extract_data p2 in
+    (PPair(info, new1, new2), vars1 @ vars2)
+
+let wrap_data e (name, pat) =
+  match pat with
+  | PData(info, (_,modl,dname), pat_opt) ->
+    (* Assumption: name is defined in scope with the data member
+     * that should match our example.
+     *)
+    let var = simple_var name in
+    let unpack = (match pat_opt with
+      | Some(pattern) ->
+        simple_app
+          (EFun(dummy, Param(dummy, pattern, None), e))
+          (simple_app (g_find "_value") var)
+      | None -> e) in
+    ECond(dummy,
+      make_instance (simple_var dname) (simple_var name),
+      unpack,
+      match_exception(info))
+  | _ -> Error.simple_error "Got non-data"
+
 let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) = 
   match e with
     | EVar(_) -> 
@@ -155,11 +196,9 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
       (EApp(i, e1', e2'), ds1' @ ds2')
     | EFun(i,Param(pi,p,pto),e1) ->
       if (has_data p) then
-        let varname = undersc() in
-        let exp = EFun(i, Param(pi, make_pvar dummy varname, pto),
-          ECase(dummy, simple_var varname, [(p,e1)])
-          ) in
-        convert_exp top vs exp
+        let (clean_pat, datas) = extract_data p in (* clean_pat has no data *)
+        let exp = List.fold_left wrap_data e1 datas in
+        convert_exp top vs (EFun(i, Param(pi,clean_pat,pto), exp))
       else
         let e1', ds1' = convert_exp top vs e1 in 
         let f1 = make_function i p e1' in 
@@ -201,7 +240,13 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
         let e_pat = make_pvar dummy e_name in
         let e_var = make_var dummy e_name in
         let fold_case (pat, e) else_e =
+          (* The problem is this:  the pattern we create can have data types in
+           * it.  This means that the let pattern has a function in it.  Then,
+           * when that turns into a function, it has a pattern in it.  Finally,
+           * this gets turned back into a case statement, and down we go.
+           *)
             let pat_sub_e = ELet(dummy, Bind(dummy, pat, None, e_var), e) in
+            print_endline (string_of_bool (has_data pat));
             ECond(dummy, make_match pat e_var, pat_sub_e, else_e)
         in
         let expr =
