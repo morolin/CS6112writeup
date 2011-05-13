@@ -154,7 +154,7 @@ let rec unify cs =
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
           | _ -> raise (TypeException (Info.M (""), "Could not unify"))
 
-let rec assign_types names (gamma, constraints) info pattern t =
+let rec assign_types names (gamma, delta, constraints) info pattern t =
     match pattern with
       | PWild (info') -> (gamma, constraints)
       | PUnit (info') -> (gamma, cadd TUnit t constraints)
@@ -174,15 +174,15 @@ let rec assign_types names (gamma, constraints) info pattern t =
         let t1 = TVar(info,None,t1_name) in
         let t2 = TVar(info,None,t2_name) in
         let (gamma', constraints') =
-            assign_types names (gamma, constraints) info p1 t1 in
+            assign_types names (gamma, delta, constraints) info p1 t1 in
         let (gamma'', constraints'') =
-            assign_types names (gamma', constraints') info p2 t2 in
+            assign_types names (gamma', delta, constraints') info p2 t2 in
         (gamma'', cunion [constraints''; ceq t (TProduct(t1,t2))])
       | _ -> raise (TypeException(info, "PData not supported"))
 
 
 (* for now, just return type of underlying expression.  Later, need to modify ast*)
-let rec typecheck_exp free gamma expr =
+let rec typecheck_exp free gamma delta expr =
   match expr with
     | EVar (info, id) ->
       let s = Id.string_of_t id in
@@ -193,9 +193,9 @@ let rec typecheck_exp free gamma expr =
     | EApp (info, expr1, expr2) ->
       let resultant_type = fresh (info, expr) in
       let (typ1, constraints1) =
-          typecheck_exp free gamma expr1 in
+          typecheck_exp free gamma delta expr1 in
       let (typ2, constraints2) =
-          typecheck_exp free gamma expr2 in
+          typecheck_exp free gamma delta expr2 in
       let constraints' =
           cunion [
               constraints1;
@@ -211,14 +211,14 @@ let rec typecheck_exp free gamma expr =
               | Some t -> ceq t1 t
               | None -> c0) in
             let (gamma', constraints') =
-                assign_types free (gamma, constraints) param_info pattern t1
+                assign_types free (gamma, delta, constraints) param_info pattern t1
             in
-            let (t, constraints'') = typecheck_exp free gamma' e in
+            let (t, constraints'') = typecheck_exp free gamma' delta e in
             (TFunction(t1, t), cunion [constraints''; constraints']))
     | ECond(i,e1,e2,e3) -> 
-      let (t1, c1) = typecheck_exp free gamma e1 in
-      let (t2, c2) = typecheck_exp free gamma e2 in
-      let (t3, c3) = typecheck_exp free gamma e3 in
+      let (t1, c1) = typecheck_exp free gamma delta e1 in
+      let (t2, c2) = typecheck_exp free gamma delta e2 in
+      let (t3, c3) = typecheck_exp free gamma delta e3 in
       let constraints' =
         cunion [
           c1; c2; c3;
@@ -229,21 +229,22 @@ let rec typecheck_exp free gamma expr =
     | ELet (info, bind, expr) ->
       (match bind with
         | Bind (info, pattern, typ, expr') ->
-          let (expr'_t, constraints) = typecheck_exp free gamma expr' in
+          let (expr'_t, constraints) = typecheck_exp free gamma delta expr' in
           let (gamma', constraints') =
-                assign_types free (gamma, constraints) info pattern expr'_t in
-          typecheck_exp free gamma' expr)
+                assign_types free (gamma, delta, constraints)
+                    info pattern expr'_t in
+          typecheck_exp free gamma' delta expr)
     | EAsc (info, expr, typ) ->
-      let (expr_t, constraints) = typecheck_exp free gamma expr in
+      let (expr_t, constraints) = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints)
     | EOver (info, op, exprs) ->
        raise (TypeException(info, "Overloaded operators not implemented"))
 
     | EPair (info, expr1, expr2) ->
       let (typ1, constraints1) =
-          typecheck_exp free gamma expr1 in
+          typecheck_exp free gamma delta expr1 in
       let (typ2, constraints2) =
-          typecheck_exp free gamma expr2 in
+          typecheck_exp free gamma delta expr2 in
       (TProduct (typ1, typ2), cunion [constraints1; constraints2])
     | ECase (info, expr1, pat_exprs) ->
       raise (TypeException(info, "Case operator not implemented"))
@@ -254,23 +255,26 @@ let rec typecheck_exp free gamma expr =
     | EChar    (info, value) -> (TChar,    ConstraintSet.empty)
     | EString  (info, value) -> (TString,  ConstraintSet.empty)
 
-let typecheck_decl (gamma, constraints) decl =
+let typecheck_decl (gamma, delta, constraints) decl =
   match decl with
     | DLet (info, bind) ->
       (match bind with 
         | Bind (info, pattern, typopt, exp) ->
           let free = ref (free_vars exp) in
-          let (t, constraints) = typecheck_exp free gamma exp in
-          assign_types free (gamma, constraints) info pattern t)
+          let (t, constraints) = typecheck_exp free gamma delta exp in
+          let (g,c) =
+            assign_types free (gamma, delta, constraints) info pattern t in
+          g,delta,c)
     | DType (info, ids, id, labels) ->
       (*TODO(astory)*)
-      (gamma, constraints)
+      (gamma, delta, constraints)
 
 let typecheck_modl = function
   | Modl (info, m, ds) ->
     let gamma = StringMap.empty in
+    let delta = StringMap.empty in
     let constraints = ConstraintSet.empty in
-    let (_, constraints') =
-        List.fold_left typecheck_decl (gamma, constraints) ds in
+    let (_,_,constraints') =
+        List.fold_left typecheck_decl (gamma, delta, constraints) ds in
     let _ = unify constraints' in
     ()
