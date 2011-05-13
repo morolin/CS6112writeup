@@ -29,7 +29,7 @@
 (* $Id$ *)
 (******************************************************************************)
 (*TODO(astory): useful errors*)
-module StringMap = Map.Make (String)
+module StrMap = Map.Make (String)
 include Syntax
 module TypeMap = Map.Make (
   struct
@@ -48,7 +48,7 @@ let dummy = Info.dummy("dummy info")
 
 exception TypeException of (Info.t * string)
 
-type gammat = typ StringMap.t 
+type gammat = typ StrMap.t 
 type subst = gammat
 type constrt = ConstraintSet.t
 
@@ -57,7 +57,7 @@ let rec vars n = lazy (
 )
 
 let stringMapSingleton k v =
-  StringMap.add k v StringMap.empty
+  StrMap.add k v StrMap.empty
 
 let rec get_first_fresh set llist =
     match Lazy.force(llist) with
@@ -96,6 +96,12 @@ let lazy_get ll =
     | Empty -> failwith "List not infinite"
     | Node (i, ls) -> ll := ls; (i,ls)
 
+let dict_ftv gamma =
+  let add_entry _ v set =
+    StrSet.union (Syntax.ftv v) set
+  in
+  StrMap.fold add_entry gamma StrSet.empty
+
 let rec substitute typ sigma = match typ with 
   | TUnit -> typ
   | TBool -> typ
@@ -109,8 +115,8 @@ let rec substitute typ sigma = match typ with
   	TData(List.map (fun t -> substitute t sigma) typs, id)
   | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
   | TVar((_,_,name)) ->
-    if StringMap.mem name sigma then
-      StringMap.find name sigma
+    if StrMap.mem name sigma then
+      StrMap.find name sigma
     else
       typ
  
@@ -126,18 +132,18 @@ let sub_constraints sub constraints =
    sigma . gamma = [X -> T for each (X -> T) in sigma
                    [                with X not in domain (gamma)*)
 let compose (sigma:subst) (gamma:subst) : subst =
-  let output = StringMap.map (fun typ -> substitute typ sigma) gamma in
-  StringMap.fold
+  let output = StrMap.map (fun typ -> substitute typ sigma) gamma in
+  StrMap.fold
     (fun k v acc ->
-      if StringMap.mem k gamma then 
+      if StrMap.mem k gamma then 
         acc
       else
-        StringMap.add k v acc)
+        StrMap.add k v acc)
     sigma
     output
 
 let rec unify cs =
-    if ConstraintSet.is_empty cs then StringMap.empty
+    if ConstraintSet.is_empty cs then StrMap.empty
     else
         let (s,t) = ConstraintSet.choose cs in
         let cs' = ConstraintSet.remove (s,t) cs in
@@ -163,8 +169,8 @@ let rec assign_types names (gamma, delta, constraints) info pattern t =
       | PString (info', _) -> (gamma, cadd TString t constraints)
       | PVar (_, (info', mo, s), typ_opt) ->
         (match typ_opt with
-          | Some t' -> (StringMap.add s t gamma, cadd t' t constraints)
-          | None -> (StringMap.add s t gamma, constraints))
+          | Some t' -> (StrMap.add s t gamma, cadd t' t constraints)
+          | None -> (StrMap.add s t gamma, constraints))
       (*| PData (info, id, pattern) *)
       | PPair (info, p1, p2) ->
         let fvs = Syntax.ftv t in
@@ -186,8 +192,13 @@ let rec typecheck_exp free gamma delta expr =
   match expr with
     | EVar (info, id) ->
       let s = Id.string_of_t id in
-      if StringMap.mem s gamma then
-        (StringMap.find s gamma, c0)
+      if StrMap.mem s gamma then
+        (StrMap.find s gamma, c0)
+        (* This should do the following with polymorphism:
+         * When we pull it out of gamma, it should be a scheme, for all 'as.t
+         * We then pick fresh 'bs, substitute them for the 'as in t, and use
+         * that as our new type.
+         *)
       else
         raise (TypeException (info, "Unbound value " ^ s))
     | EApp (info, expr1, expr2) ->
@@ -234,6 +245,11 @@ let rec typecheck_exp free gamma delta expr =
                 assign_types free (gamma, delta, constraints)
                     info pattern expr'_t in
           typecheck_exp free gamma' delta expr)
+          (* attempts at let polymorphism 
+          let 'as = StrSet.diff (syntax.ftv_exp expr) (dict_ftv gamma) in
+          --now we want forall 'as.t
+          --how do we represent a type scheme?  It should live in gamma, right?
+          *)
     | EAsc (info, expr, typ) ->
       let (expr_t, constraints) = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints)
@@ -265,14 +281,23 @@ let typecheck_decl (gamma, delta, constraints) decl =
           let (g,c) =
             assign_types free (gamma, delta, constraints) info pattern t in
           g,delta,c)
-    | DType (info, ids, id, labels) ->
-      (*TODO(astory)*)
-      (gamma, delta, constraints)
+    | DType (info, ids, (_,_,id), labels) ->
+      let add_constructor g ((_,_,lid), typ_opt)=
+        (* TODO(astory): figure out
+         * It seems like we need to have some way of including the type list in
+         * this.  So Nil somehow gets type 'a list, and Cons(7, Nil) gets
+         * integer list.
+         *)
+        StrMap.add lid TUnit g
+      in
+      let gamma' = List.fold_left add_constructor gamma labels in
+      let delta' = StrMap.add id labels delta in
+      (gamma', delta', constraints)
 
 let typecheck_modl = function
   | Modl (info, m, ds) ->
-    let gamma = StringMap.empty in
-    let delta = StringMap.empty in
+    let gamma = StrMap.empty in
+    let delta = StrMap.empty in
     let constraints = ConstraintSet.empty in
     let (_,_,constraints') =
         List.fold_left typecheck_decl (gamma, delta, constraints) ds in
