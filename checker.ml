@@ -142,8 +142,14 @@ let compose (sigma:subst) (gamma:subst) : subst =
     sigma
     output
 
+(* Wrapper to deal with option *)
+let compose_opt (sigma_opt:subst option) (gamma:subst) : subst option =
+  match sigma_opt with
+  | Some sigma -> Some (compose sigma gamma)
+  | None -> None
+
 let rec unify cs =
-    if ConstraintSet.is_empty cs then StrMap.empty
+    if ConstraintSet.is_empty cs then Some StrMap.empty
     else
         let (s,t) = ConstraintSet.choose cs in
         let cs' = ConstraintSet.remove (s,t) cs in
@@ -152,13 +158,18 @@ let rec unify cs =
         else match (s,t) with
           | (TVar(_,_,var), _) when not (fv var t) ->
             let sub = stringMapSingleton var t in
-            compose (unify (sub_constraints sub cs')) sub
+            compose_opt (unify (sub_constraints sub cs')) sub
           | (_, TVar(_,_,var)) when not (fv var s) ->
             let sub = stringMapSingleton var s in
-            compose (unify (sub_constraints sub cs')) sub
+            compose_opt (unify (sub_constraints sub cs')) sub
           | (TFunction(s1,s2),TFunction(t1,t2)) ->
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
-          | _ -> raise (TypeException (Info.M (""), "Could not unify"))
+          | _ -> None
+
+let unify_err cs =
+  match unify cs with 
+  | Some x -> x
+  | None -> raise (TypeException (Info.M (""), "Could not unify"))
 
 let rec assign_types names (gamma, delta, constraints) info pattern t =
     match pattern with
@@ -244,16 +255,25 @@ let rec typecheck_exp free gamma delta expr =
           let (gamma', constraints') =
                 assign_types free (gamma, delta, constraints)
                     info pattern expr'_t in
+          (* these methods need to give me a set of Id.t *)
+          (* let 'as = StrSet.diff (syntax.ftv_exp expr) (dict_ftv gamma) in*)
           typecheck_exp free gamma' delta expr)
-          (* attempts at let polymorphism 
-          let 'as = StrSet.diff (syntax.ftv_exp expr) (dict_ftv gamma) in
-          --now we want forall 'as.t
-          --how do we represent a type scheme?  It should live in gamma, right?
+          (*
+          --gamma should store only type schemes
+          --extend gamma' to gamma'' by adding scheme with 'as and expr'_t
           *)
     | EAsc (info, expr, typ) ->
       let (expr_t, constraints) = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints)
     | EOver (info, op, exprs) ->
+       (* type check and unify all the expressions as much as possible, apply
+        * substitutions
+        * table full of operators and types they expect, if exactly one match,
+        * use it, otherwise, barf
+        *
+        * Using the type might cause other types to become unified.
+        * Soft matches
+        *)
        raise (TypeException(info, "Overloaded operators not implemented"))
 
     | EPair (info, expr1, expr2) ->
@@ -284,9 +304,9 @@ let typecheck_decl (gamma, delta, constraints) decl =
     | DType (info, ids, (_,_,id), labels) ->
       let add_constructor g ((_,_,lid), typ_opt)=
         (* TODO(astory): figure out
-         * It seems like we need to have some way of including the type list in
-         * this.  So Nil somehow gets type 'a list, and Cons(7, Nil) gets
-         * integer list.
+         * TODO: get rid of opt, fill in with unit
+         * scheme: ids * TFun(typ_opt or unit -> polymorphic type of data,
+         * TData(ids, id)
          *)
         StrMap.add lid TUnit g
       in
@@ -301,5 +321,5 @@ let typecheck_modl = function
     let constraints = ConstraintSet.empty in
     let (_,_,constraints') =
         List.fold_left typecheck_decl (gamma, delta, constraints) ds in
-    let _ = unify constraints' in
+    let _ = unify_err constraints' in
     ()

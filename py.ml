@@ -120,6 +120,7 @@ let rec format_decl decl =
         sprintf "assert %s == %s\n" (pystring s) (format_exp exp)
     | PVar(_, (_,_,varname),_) ->
         sprintf "%s = %s\n" varname (format_exp exp)
+      (*TODO*)
     | PData(_,(_,_,name),pat_opt) -> unimp()
     | PPair(_, pat1, pat2) -> unimp()
     )
