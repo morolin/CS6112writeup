@@ -48,8 +48,7 @@ let dummy = Info.dummy("dummy info")
 
 exception TypeException of (Info.t * string)
 
-type gammat = typ StrMap.t 
-type subst = gammat
+type subst = typ StrMap.t 
 type constrt = ConstraintSet.t
 
 let rec vars n = lazy (
