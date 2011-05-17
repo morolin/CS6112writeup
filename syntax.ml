@@ -235,39 +235,39 @@ let mk_tern_op i o e1 e2 e3 =
 (* bound/free variables *)
 
 let rec bv p = match p with
-  | PWild(_)      -> StrSet.empty
-  | PUnit(_)      -> StrSet.empty
-  | PBool(_,_)    -> StrSet.empty
-  | PInteger(_,_) -> StrSet.empty
-  | PString(_,_)  -> StrSet.empty
-  | PVar(_,(_,m,name),_) -> StrSet.singleton name
-  | PData(_,_,po) -> BatOption.map_default bv StrSet.empty po
-  | PPair(_,p1,p2) -> StrSet.union (bv p1) (bv p2)
+  | PWild(_)      -> Id.Set.empty
+  | PUnit(_)      -> Id.Set.empty
+  | PBool(_,_)    -> Id.Set.empty
+  | PInteger(_,_) -> Id.Set.empty
+  | PString(_,_)  -> Id.Set.empty
+  | PVar(_,id,_) -> Id.Set.singleton id 
+  | PData(_,_,po) -> BatOption.map_default bv Id.Set.empty po
+  | PPair(_,p1,p2) -> Id.Set.union (bv p1) (bv p2)
 
 let rec fv exp = match exp with
-  | EVar(_,(_, m, name)) -> StrSet.singleton name
-  | EApp (_, e1, e2) -> StrSet.union (fv e1) (fv e2)
-  | EFun (_, Param(_,pat,_), e) -> StrSet.diff (fv e) (bv pat)
-  | ECond (_, e1,e2,e3) -> StrSet.union (StrSet.union (fv e1) (fv e2)) (fv e3)
+  | EVar(_,id) -> Id.Set.singleton id 
+  | EApp (_, e1, e2) -> Id.Set.union (fv e1) (fv e2)
+  | EFun (_, Param(_,pat,_), e) -> Id.Set.diff (fv e) (bv pat)
+  | ECond (_, e1,e2,e3) -> Id.Set.union (Id.Set.union (fv e1) (fv e2)) (fv e3)
   | ELet (_, Bind(_,pat, _, e_bind), e) ->
-    StrSet.union (fv e_bind) (StrSet.diff (fv e) (bv pat))
+    Id.Set.union (fv e_bind) (Id.Set.diff (fv e) (bv pat))
   | EAsc (_, exp, typ) -> fv exp
   | EOver (_,_,_) -> raise UnimplementedException
   
-  | EPair (_, e1, e2) -> StrSet.union (fv e1) (fv e2)
+  | EPair (_, e1, e2) -> Id.Set.union (fv e1) (fv e2)
   | ECase (_, m_exp, exps) ->
-    StrSet.union
+    Id.Set.union
         (fv m_exp)
         (List.fold_left
             (fun acc (p, e) ->
-                StrSet.union (StrSet.diff (fv e) (bv p)) acc)
-            StrSet.empty exps)
+                Id.Set.union (Id.Set.diff (fv e) (bv p)) acc)
+            Id.Set.empty exps)
   
-  | EUnit(_)      -> StrSet.empty
-  | EInteger(_,_) -> StrSet.empty
-  | EChar(_,_)    -> StrSet.empty
-  | EString(_,_)  -> StrSet.empty
-  | EBool(_,_)    -> StrSet.empty
+  | EUnit(_)      -> Id.Set.empty
+  | EInteger(_,_) -> Id.Set.empty
+  | EChar(_,_)    -> Id.Set.empty
+  | EString(_,_)  -> Id.Set.empty
+  | EBool(_,_)    -> Id.Set.empty
 
 (* fresh variables *)
 let fresh xs = 
@@ -279,16 +279,26 @@ let fresh xs =
     else y in 
   aux 0 
 
+let fresh_id xs = 
+  let rec aux i = 
+    let y = 
+      (Info.dummy(""),None,
+      (String.make 1 (Char.chr (97 + i mod 26))) ^
+      (if i > 25 then String.make (i - 25) '\'' else "")) in
+    if Id.Set.mem y xs then aux (succ i)
+    else y in 
+  aux 0 
+
 (* substitution *)
 
-let rec subst_pattern p x p0 = match p0 with 
+let rec subst_pattern p (x:Id.t) p0 = match p0 with 
   | PWild(_) -> p0
   | PUnit(_) -> p0
   | PBool(_) -> p0
   | PInteger(_) -> p0
   | PString(_) -> p0
-  | PVar(i1,(i2,m,y),t) -> 
-    if m = None && x = y then p
+  | PVar(i1,y,t) -> 
+    if Id.equal x y then p
     else p0
   | PData(i,c,po) -> 
     let po' = match po with 
@@ -301,27 +311,27 @@ let rec subst_pattern p x p0 = match p0 with
 let rec subst_exp e x e0 = 
   let freshen p e1 = 
     let e_fv = fv e in 
-    StrSet.fold 
+    Id.Set.fold 
       (fun y (pi,e1i) -> 
-        let z = fresh (StrSet.inter (bv pi) e_fv) in 
-        let z_info = Info.M "fresh variable" in 
-        let z_pat = PVar(z_info,(z_info,None,z),None) in 
-        let z_var = EVar(z_info,(z_info,None,z)) in 
+        let z = fresh_id (Id.Set.inter (bv pi) e_fv) in 
+        let z_info = Info.M "fresh variable" in
+        let z_pat = PVar(z_info,z,None) in 
+        let z_var = EVar(z_info,z) in 
         let pi' = subst_pattern z_pat y pi in 
         let ei' = subst_exp z_var y e1i in 
         (pi',ei'))
-      (StrSet.inter (bv p) e_fv) 
+      (Id.Set.inter (bv p) e_fv) 
       (p,e1) in 
   match e0 with
-  | EVar(_,(_,m,y)) -> 
-    if m = None && x = y then e
+  | EVar(_,y) -> 
+    if Id.equal x y then e
     else e0 
   | EApp(i, e1, e2) -> 
     EApp(i,subst_exp e x e1,subst_exp e x e2)
 
   | EFun(i,Param(_,p,t),e1) -> 
     if 
-      StrSet.mem x (bv p) then e0 
+      Id.Set.mem x (bv p) then e0 
     else 
       let p',e1' = freshen p e1 in
       EFun(i,Param(i,p',t),subst_exp e x e1')
@@ -350,66 +360,66 @@ let rec subst_exp e x e0 =
   | EBool(_) -> e0
 
 let rec ftv_pattern pat = match pat with
-  | PWild(_)      -> StrSet.empty
-  | PUnit(_)      -> StrSet.empty
-  | PBool(_,_)    -> StrSet.empty
-  | PInteger(_,_) -> StrSet.empty
-  | PString(_,_)  -> StrSet.empty
-  | PVar(_,_,t_opt) -> BatOption.map_default ftv StrSet.empty t_opt
-  | PData(_,_,pat_opt) -> BatOption.map_default ftv_pattern StrSet.empty pat_opt
-  | PPair(_,p1,p2) -> StrSet.union (ftv_pattern p1) (ftv_pattern p2)
+  | PWild(_)      -> Id.Set.empty
+  | PUnit(_)      -> Id.Set.empty
+  | PBool(_,_)    -> Id.Set.empty
+  | PInteger(_,_) -> Id.Set.empty
+  | PString(_,_)  -> Id.Set.empty
+  | PVar(_,_,t_opt) -> BatOption.map_default ftv Id.Set.empty t_opt
+  | PData(_,_,pat_opt) -> BatOption.map_default ftv_pattern Id.Set.empty pat_opt
+  | PPair(_,p1,p2) -> Id.Set.union (ftv_pattern p1) (ftv_pattern p2)
 
 and ftv t = match t with
-  | TUnit -> StrSet.empty
-  | TBool -> StrSet.empty
-  | TInteger -> StrSet.empty
-  | TChar -> StrSet.empty
-  | TString -> StrSet.empty
+  | TUnit -> Id.Set.empty
+  | TBool -> Id.Set.empty
+  | TInteger -> Id.Set.empty
+  | TChar -> Id.Set.empty
+  | TString -> Id.Set.empty
 
-  | TProduct(t1, t2) -> StrSet.union (ftv t1) (ftv t2)
+  | TProduct(t1, t2) -> Id.Set.union (ftv t1) (ftv t2)
   | TData(ts, _) ->
     List.fold_left
-        (fun set t -> StrSet.union set (ftv t))
-        StrSet.empty
+        (fun set t -> Id.Set.union set (ftv t))
+        Id.Set.empty
         ts
 
-  | TFunction(t1, t2) -> StrSet.union (ftv t1) (ftv t2)
-  | TVar((_,_,name)) -> StrSet.singleton name
+  | TFunction(t1, t2) -> Id.Set.union (ftv t1) (ftv t2)
+  | TVar(id) -> Id.Set.singleton id
 
 let rec ftv_exp exp = match exp with
-  | EVar(_,_) -> StrSet.empty
-  | EApp (_, e1, e2) -> StrSet.union (ftv_exp e1) (ftv_exp e2)
+  | EVar(_,_) -> Id.Set.empty
+  | EApp (_, e1, e2) -> Id.Set.union (ftv_exp e1) (ftv_exp e2)
   | EFun (_,Param(_,pat,t_opt),e) ->
-    StrSet.union
+    Id.Set.union
     (ftv_exp e)
-    (StrSet.union
+    (Id.Set.union
         (ftv_pattern pat)
-        (BatOption.map_default ftv StrSet.empty t_opt)
+        (BatOption.map_default ftv Id.Set.empty t_opt)
     )
   | ECond (_,e1,e2,e3) -> 
-    StrSet.union (StrSet.union (ftv_exp e1) (ftv_exp e2)) (ftv_exp e3)
+    Id.Set.union (Id.Set.union (ftv_exp e1) (ftv_exp e2)) (ftv_exp e3)
   | ELet (_,Bind(_,pat,t_opt,bind_e),e) ->
-    StrSet.union
-        (StrSet.union
+    Id.Set.union
+        (Id.Set.union
             (ftv_pattern pat)
-            (BatOption.map_default ftv StrSet.empty t_opt))
-        (StrSet.union
+            (BatOption.map_default ftv Id.Set.empty t_opt))
+        (Id.Set.union
             (ftv_exp bind_e)
             (ftv_exp e))
-  | EAsc (_,e,t) -> StrSet.union (ftv_exp e) (ftv t)
+  | EAsc (_,e,t) -> Id.Set.union (ftv_exp e) (ftv t)
   | EOver (_,_,_) -> raise UnimplementedException
 
-  | EPair (_,e1,e2) -> StrSet.union (ftv_exp e1) (ftv_exp e2)
+  | EPair (_,e1,e2) -> Id.Set.union (ftv_exp e1) (ftv_exp e2)
   | ECase (_, m_exp, exps) ->
-    StrSet.union
+    Id.Set.union
         (ftv_exp m_exp)
         (List.fold_left
             (fun acc (pat, e) ->
-                StrSet.union (StrSet.union (ftv_pattern pat) (ftv_exp e)) acc)
-            StrSet.empty exps)
+                Id.Set.union (Id.Set.union (ftv_pattern pat) (ftv_exp e)) acc)
+            Id.Set.empty exps)
 
-  | EUnit (_)      -> StrSet.empty
-  | EInteger (_,_) -> StrSet.empty
-  | EChar (_,_)    -> StrSet.empty
-  | EString (_,_)  -> StrSet.empty
-  | EBool (_,_)    -> StrSet.empty
+  | EUnit (_)      -> Id.Set.empty
+  | EInteger (_,_) -> Id.Set.empty
+  | EChar (_,_)    -> Id.Set.empty
+  | EString (_,_)  -> Id.Set.empty
+  | EBool (_,_)    -> Id.Set.empty

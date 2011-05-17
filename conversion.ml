@@ -43,20 +43,23 @@ let get_fresh s =
   incr fresh_cell;
   s ^ (string_of_int !fresh_cell)
 
-let fresh () = get_fresh "f_"
+let fresh () = (dummy, None, get_fresh "f_")
 
-let undersc () = get_fresh "_"
+let undersc () = (dummy, None, get_fresh "_")
 
 let make_function i pat e =
   EFun(i, Param(dummy,pat,None),e)
 
 let make_var i z =
-  EVar(i, (dummy,None, z))
+  EVar(i, z)
 
 let simple_var = make_var dummy
 
+let simple_var_id name =
+  make_var dummy (dummy, None, name)
+
 let make_pvar i z =
-  PVar(i, (dummy, None, z), None)
+  PVar(i, z, None)
 
 let make_application i name e =
   EApp(i, e, make_var i name) 
@@ -70,12 +73,12 @@ let globals = List.fold_left
   (fun map (k, v) -> StrMap.add k v map)
   StrMap.empty
   [
-  ("_match_failure", simple_var "_match_failure");
-  ("land", simple_var "land");
-  ("_equals", simple_var "_equals");
-  ("_is_pair", simple_var "_is_pair");
-  ("_isinstance", simple_var "_isinstance");
-  ("_value", simple_var "_value");
+  ("_match_failure", simple_var_id "_match_failure");
+  ("land", simple_var_id "land");
+  ("_equals", simple_var_id "_equals");
+  ("_is_pair", simple_var_id "_is_pair");
+  ("_isinstance", simple_var_id "_isinstance");
+  ("_value", simple_var_id "_value");
   ]
 
 let g_find name = StrMap.find name globals
@@ -114,10 +117,10 @@ let rec make_match (pat:pattern) (e:exp) =
     | PInteger(_, value) -> make_equals e (EInteger(dummy, value))
     | PString(_, value) -> make_equals e (EString(dummy, value))
     | PVar(_) -> EBool(dummy, false)
-    | PData(_,(_,_,name), pat_opt) -> 
+    | PData(_, id, pat_opt) -> 
       (* logic:  check that e is of the same type as name, and then recurse with
       pattern on e.value *)
-      let safe = make_instance (simple_var name) e in
+      let safe = make_instance (simple_var id) e in
       (match pat_opt with
       | Some pat ->
         make_and
@@ -130,19 +133,19 @@ let rec make_match (pat:pattern) (e:exp) =
        * safe to use a Let statement to split it into its two halves, and then
        * recursively check the two sub-{pattern,expression}s.
        *)
-      let e1_name = undersc() in
-      let e2_name = undersc() in
+      let e1_id = undersc() in
+      let e2_id = undersc() in
       make_and
         (simple_app (g_find "_is_pair") e)
         (ELet(
           dummy,
           Bind(dummy,
-            PPair(dummy, make_pvar dummy e1_name, make_pvar dummy e2_name),
+            PPair(dummy, make_pvar dummy e1_id, make_pvar dummy e2_id),
             None,
             e),
           make_and
-            (make_match p1 (simple_var e1_name))
-              (make_match p2 (simple_var e2_name))
+            (make_match p1 (simple_var e1_id))
+              (make_match p2 (simple_var e2_id))
           ))
 
 (* Recurse through a pattern, find all the data types and replace them with
@@ -150,7 +153,7 @@ let rec make_match (pat:pattern) (e:exp) =
  * re-constitute it, i.e., a list of varname * PData(...).
  *)
 let rec extract_data:
-      pattern -> pattern * (string * pattern) list =
+      pattern -> pattern * (Id.t * pattern) list =
   fun pat -> match pat with
   | PWild(_)
   | PUnit(_)
@@ -161,7 +164,7 @@ let rec extract_data:
   | PData(info, id, pat_opt) ->
     let var = undersc() in
     let p = make_pvar info var in
-    (p, [(var, pat)])
+    (p, [(var, pat)]) (* TODO(astory): thread info through? *)
   | PPair(info, p1, p2) ->
     let new1, vars1 = extract_data p1 in
     let new2, vars2 = extract_data p2 in
@@ -169,7 +172,7 @@ let rec extract_data:
 
 let wrap_data e (name, pat) =
   match pat with
-  | PData(info, (_,modl,dname), pat_opt) ->
+  | PData(info, did, pat_opt) ->
     (* Assumption: name is defined in scope with the data member
      * that should match our example.
      *)
@@ -181,12 +184,12 @@ let wrap_data e (name, pat) =
           (simple_app (g_find "_value") var)
       | None -> e) in
     ECond(dummy,
-      make_instance (simple_var dname) (simple_var name),
+      make_instance (simple_var did) (simple_var name),
       unpack,
       match_exception(info))
   | _ -> Error.simple_error "Got non-data"
 
-let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) = 
+let rec convert_exp (top:bool) (vs:Id.Set.t) (e:exp) = 
   match e with
     | EVar(_) -> 
       (e, [])
@@ -206,10 +209,10 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
         else 
           let h = fresh () in
           let zs = 
-            StrSet.elements 
-              (StrSet.diff (fv e1') 
-                 (StrSet.union 
-                    (Data.List.fold_left (fun vs (f,_) -> StrSet.add f vs) vs ds1')
+            Id.Set.elements 
+              (Id.Set.diff (fv e1') 
+                 (Id.Set.union 
+                    (Data.List.fold_left (fun vs (f,_) -> Id.Set.add f vs) vs ds1')
                     (bv p))) in 
           let f = 
             List.fold_left 
@@ -259,9 +262,9 @@ let rec convert_exp (top:bool) (vs:StrSet.t) (e:exp) =
       (e,[]) 
 
 let mk_decl i f e = 
-  DLet(i,Bind(dummy,PVar(dummy,(dummy, None, f), None), None, e))
+  DLet(i,Bind(dummy,PVar(dummy,f, None), None, e))
 
-let rec convert_decl (d:decl) (vs:StrSet.t) = 
+let rec convert_decl (d:decl) (vs:Id.Set.t) = 
   match d with
     | DLet (i, Bind(bi,p,bto,e)) -> 
       if (has_data p) then
@@ -271,7 +274,7 @@ let rec convert_decl (d:decl) (vs:StrSet.t) =
         convert_decl d vs
       else
         let vs' = match p with 
-          | PVar(_,(_,None,x),_) -> StrSet.add x vs 
+          | PVar(_,x,_) -> Id.Set.add x vs 
           | _ -> vs in 
         let e', ds' = convert_exp true vs' e in
         let ds'' = 
@@ -288,7 +291,7 @@ let convert_decls (ds:decl list) =
     (fun (decls,vs) d -> 
       let decls',vs' = convert_decl d vs in 
       (decls @ decls',vs'))
-    ([],StrSet.empty) ds
+    ([],Id.Set.empty) ds
 
 let convert_module (Modl(i,m,decls)) =
   let decls',_ = convert_decls decls in 

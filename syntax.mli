@@ -157,7 +157,7 @@ val mk_if : Info.t -> exp -> exp -> exp -> exp
 val mk_bin_op : Info.t -> exp -> exp -> exp -> exp
 val mk_tern_op : Info.t -> exp -> exp -> exp -> exp -> exp
 
-val bv : pattern -> StrSet.t
-val ftv : typ -> StrSet.t
-val fv : exp -> StrSet.t
-val ftv_exp : exp -> StrSet.t
+val bv : pattern -> Id.Set.t
+val ftv : typ -> Id.Set.t
+val fv : exp -> Id.Set.t
+val ftv_exp : exp -> Id.Set.t
