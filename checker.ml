@@ -128,6 +128,14 @@ let sub_constraints sub constraints =
       constraints
       ConstraintSet.empty
 
+let create_substitution free ids =
+  let build_substitution id sub =
+    (* NOTE: is this safe? *)
+    let fresh = lazy_get free in (* Updates free *)
+    Id.Map.add id (TVar(fresh)) sub
+  in
+  Id.Set.fold build_substitution ids Id.Map.empty
+
 (* Pierce, Types and Programming Languages, 2002, page 318
                    [X -> sigma(T) for each (X->T) in gamma
    sigma . gamma = [X -> T for each (X -> T) in sigma
@@ -172,7 +180,7 @@ let unify_err cs =
   | Some x -> x
   | None -> raise (TypeException (Info.M (""), "Could not unify"))
 
-let rec assign_types names (gamma, delta, constraints) info pattern t alphas =
+let rec assign_types free (gamma, delta, constraints) info pattern t alphas =
     match pattern with
       | PWild (info') -> (gamma, constraints)
       | PUnit (info') -> (gamma, cadd TUnit t constraints)
@@ -185,7 +193,47 @@ let rec assign_types names (gamma, delta, constraints) info pattern t alphas =
             (Id.Map.add id (Scheme(alphas, t)) gamma, cadd t' t constraints)
           | None ->
             (Id.Map.add id (Scheme(alphas, t)) gamma, constraints))
-      (*| PData (info, id, pattern) TODO *)
+      | PData (info, id, pat_opt) ->
+        if Id.Map.mem id gamma then
+          (* What we're doing: TODO:verify w/ Nate
+           * we start with something like Cons(pattern).
+           *
+           * We first find out that Cons is of type
+           *   fun(('a, 'a list) -> 'a * list)
+           * and that this is predicated on 'a.
+           *
+           * So this tells us two things:  the pattern we expect to use as
+           * input, and the resultant type.
+           *
+           * Next, get fresh types (here for just 'a) and substitute them in.
+           *
+           * After this, we know what type the pattern has to be, so recurse on
+           * the input type to the function, and we know the output type to the
+           * function, so we can return that.
+           *
+           * We also add the constraint that the resultant type for this whole
+           * shebang is the output type that we found.
+           *)
+          let Scheme(ids, data_type) = Id.Map.find id gamma in
+          (match data_type with
+            | TFunction(in_t,out_t) ->
+              let substitution = create_substitution free ids in
+              let in_t' = substitute in_t substitution in
+              let out_t' = substitute out_t substitution in
+              let (gamma', constraints') =
+                (match pat_opt with
+                | Some(pattern) -> 
+                  assign_types free (gamma, delta, constraints)
+                    info pattern in_t' alphas
+                | None -> (gamma, constraints)
+                ) in
+              (gamma', cunion [constraints'; ceq t out_t'])
+            | _ ->
+              Error.simple_error
+                ("Type constructor "^(Id.string_of_t id)^" not a function")
+          )
+        else
+          raise (TypeException(info, ("Unknown data type" ^ (Id.string_of_t id))))
       | PPair (info, p1, p2) ->
         let fvs = Syntax.ftv t in
         let t1_name = get_first_fresh fvs (vars 0) in
@@ -194,23 +242,17 @@ let rec assign_types names (gamma, delta, constraints) info pattern t alphas =
         let t1 = TVar(t1_name) in
         let t2 = TVar(t2_name) in
         let (gamma', constraints') =
-            assign_types names (gamma, delta, constraints) info p1 t1 alphas in
+            assign_types free (gamma, delta, constraints) info p1 t1 alphas in
         let (gamma'', constraints'') =
-            assign_types names (gamma', delta, constraints') info p2 t2 alphas in
+            assign_types free (gamma', delta, constraints') info p2 t2 alphas in
         (gamma'', cunion [constraints''; ceq t (TProduct(t1,t2))])
-      | _ -> raise (TypeException(info, "PData not supported"))
 
 let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
   match expr with
     | EVar (info, id) ->
       if Id.Map.mem id gamma then
-        let build_sub id sub =
-          (* NOTE: is this safe? *)
-          let fresh = lazy_get free in (* Updates free *)
-          Id.Map.add id (TVar(fresh)) sub
-        in
         let Scheme(ids, t) = Id.Map.find id gamma in
-        let substitution = Id.Set.fold build_sub ids Id.Map.empty in
+        let substitution = create_substitution free ids in
         (substitute t substitution, c0)
       else
         raise (TypeException (info, "Unbound value " ^ (Id.string_of_t id)))
