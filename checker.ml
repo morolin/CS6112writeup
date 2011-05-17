@@ -42,6 +42,15 @@ module ConstraintSet = Set.Make (
     type t = typ * typ
   end )
 
+type subst = typ Id.Map.t 
+type constrt = ConstraintSet.t
+
+module TypeListSet = Set.Make (
+  struct
+    let compare = compare
+    type t = typ list * subst 
+  end )
+
 open Util
 
 let dummy = Info.dummy("dummy info")
@@ -49,9 +58,6 @@ let dummy = Info.dummy("dummy info")
 exception TypeException of (Info.t * string)
 
 let empty_scheme t = (Id.Set.empty, t)
-
-type subst = typ Id.Map.t 
-type constrt = ConstraintSet.t
 
 let rec vars n = lazy (
     Node((dummy, None, "a" ^ (string_of_int n)), vars (n+1))
@@ -307,15 +313,44 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       let (expr_t, constraints) = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints)
     | EOver (info, op, exprs) ->
-       (* type check and unify all the expressions as much as possible, apply
-        * substitutions
-        * table full of operators and types they expect, if exactly one match,
-        * use it, otherwise, barf
-        *
-        * Using the type might cause other types to become unified.
-        * Soft matches
-        *)
-       raise (TypeException(info, "Overloaded operators not implemented"))
+      (* type check and unify all the expressions as much as possible, apply
+       * substitutions
+       * table full of operators and types they expect, if exactly one match,
+       * use it, otherwise, barf
+       *
+       * Using the type might cause other types to become unified.
+       * Soft matches
+       *)
+      let types_options = [] in (* TODO(astory): this needs to be a real lookup *)
+      let real_name = TVar(dummy, None, "??") in
+      let checked =
+        List.map (fun e -> typecheck_exp free gamma delta e) exprs in
+      let build_matches set (types:typ list) =
+        let build_check constraints (t1, (t2, cs)) =
+          cunion [constraints; cs; ceq t1 t2]
+        in
+        let cs = List.fold_left build_check c0 (List.combine types checked) in
+        (match unify cs with
+        (* If it unifies, we keep it, otherwise, throw it out *)
+        | Some subst -> TypeListSet.add (types, subst) set
+        | None -> set)
+      in
+      let matches =
+        List.fold_left build_matches TypeListSet.empty types_options in
+      (match TypeListSet.cardinal matches with
+      | 0 -> raise
+        (TypeException(info, "No matches for overloaded operator"))
+      | 1 -> 
+        let (types, subst) = TypeListSet.choose matches in
+        (* These types are as specific as they're going to get TODO right? *)
+        let types' = List.map (fun t -> substitute t subst) types in
+        (* TODO: leave for now, but we need to have a way to change the
+         * expression going up *)
+        let build_type t1 t2 = TFunction(t1, t2) in
+        (List.fold_left build_type real_name types', c0)
+      | _ -> raise
+        (TypeException(info, "Too many matches for overloaded operator"))
+      )
 
     | EPair (info, expr1, expr2) ->
       let (typ1, constraints1) =
@@ -324,6 +359,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           typecheck_exp free gamma delta expr2 in
       (TProduct (typ1, typ2), cunion [constraints1; constraints2])
     | ECase (info, expr1, pat_exprs) ->
+      (* TODO(astory): how do we do cases again? *)
       raise (TypeException(info, "Case operator not implemented"))
 
     | EUnit    (info)        -> (TUnit,    ConstraintSet.empty)
