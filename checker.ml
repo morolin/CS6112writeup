@@ -300,15 +300,11 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           ceq t2 t3]
       in
       (t2, constraints')
-    | ELet (info, bind, expr) ->
-      (match bind with
-        | Bind (info, pattern, typ, expr') ->
-          let alphas = Id.Set.diff (Syntax.ftv_exp expr) (dict_ftv gamma) in
-          let (expr'_t, constraints) = typecheck_exp free gamma delta expr' in
-          let (gamma', constraints') =
-                assign_types free (gamma, delta, constraints)
-                    info pattern expr'_t alphas in
-          typecheck_exp free gamma' delta expr)
+    | ELet (_, Bind (info, pattern, typ, expr'), expr) ->
+      let (gamma', constraints') =
+        check_let free gamma delta info pattern typ expr' in
+      let (t, constraints'') = typecheck_exp free gamma' delta expr in
+      (t, cunion [constraints'; constraints''])
     | EAsc (info, expr, typ) ->
       let (expr_t, constraints) = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints)
@@ -359,8 +355,14 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           typecheck_exp free gamma delta expr2 in
       (TProduct (typ1, typ2), cunion [constraints1; constraints2])
     | ECase (info, expr1, pat_exprs) ->
-      (* TODO(astory): how do we do cases again? *)
-      raise (TypeException(info, "Case operator not implemented"))
+      (* TODO(astory): verify *)
+      let output_t = TVar(lazy_get free) in
+      let build_check (t, cs) (p, e) =
+        let (gamma', cs') = check_let free gamma delta info p None expr1 in
+        let (t', cs'') = typecheck_exp free gamma' delta e in
+        (t, cunion [cs; cs'; cs''; ceq t t'])
+      in
+      List.fold_left build_check (output_t, c0) pat_exprs
 
     | EUnit    (info)        -> (TUnit,    ConstraintSet.empty)
     | EBool    (info, value) -> (TBool,    ConstraintSet.empty)
@@ -368,18 +370,20 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
     | EChar    (info, value) -> (TChar,    ConstraintSet.empty)
     | EString  (info, value) -> (TString,  ConstraintSet.empty)
 
+and check_let free gamma delta info pat eq_t expr =
+  let alphas = Id.Set.diff (Syntax.ftv_exp expr) (dict_ftv gamma) in
+  let (expr_t, constraints) = typecheck_exp free gamma delta expr in
+  assign_types free (gamma, delta, constraints) info pat expr_t alphas
+
 let typecheck_decl (gamma, delta, constraints) decl =
   match decl with
     | DLet (info, bind) ->
       (match bind with 
         | Bind (info, pattern, typ, expr) ->
           let free = ref (lazy (free_vars expr)) in
-          let alphas = Id.Set.diff (Syntax.ftv_exp expr) (dict_ftv gamma) in
-          let (expr_t, constraints) = typecheck_exp free gamma delta expr in
           let (gamma', constraints') =
-                assign_types free (gamma, delta, constraints)
-                    info pattern expr_t alphas in
-          gamma',delta,constraints')
+            check_let free gamma delta info pattern typ expr in
+          gamma', delta, cunion [constraints; constraints'])
     | DType (info, ids, id, labels) ->
       let add_constructor g (lid, typ_opt)=
         let t = (match typ_opt with | Some x -> x | None -> TUnit) in
