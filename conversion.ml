@@ -164,7 +164,7 @@ let rec extract_data:
   | PData(info, id, pat_opt) ->
     let var = undersc() in
     let p = make_pvar info var in
-    (p, [(var, pat)]) (* TODO(astory): thread info through? *)
+    (p, [(var, pat)])
   | PPair(info, p1, p2) ->
     let new1, vars1 = extract_data p1 in
     let new2, vars2 = extract_data p2 in
@@ -243,11 +243,6 @@ let rec convert_exp (top:bool) (vs:Id.Set.t) (e:exp) =
         let e_pat = make_pvar dummy e_name in
         let e_var = make_var dummy e_name in
         let fold_case (pat, e) else_e =
-          (* The problem is this:  the pattern we create can have data types in
-           * it.  This means that the let pattern has a function in it.  Then,
-           * when that turns into a function, it has a pattern in it.  Finally,
-           * this gets turned back into a case statement, and down we go.
-           *)
             let pat_sub_e = ELet(dummy, Bind(dummy, pat, None, e_var), e) in
             print_endline (string_of_bool (has_data pat));
             ECond(dummy, make_match pat e_var, pat_sub_e, else_e)
