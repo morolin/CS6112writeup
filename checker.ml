@@ -268,9 +268,14 @@ let rec unify cs =
                   cs'
                   (List.combine ts1 ts2))
             else None
-          (* TODO(astory): Do we need to add product, and primitive equality
-           * too?  I bet we do :/*)
-          | _ -> None
+          | (TProduct(t1a,t1b), TProduct(t2a,t2b)) ->
+            unify (cunion [cs'; ceq t1a t2a; ceq t1b t2b])
+          (* Base types *)
+          | (base1, base2) ->
+            if base1 == base2 then
+              Some Id.Map.empty
+            else
+              None
 
 let unify_err cs =
   match unify cs with
