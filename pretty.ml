@@ -203,8 +203,6 @@ and format_exp e0 = match e0 with
   | EBool (_,b) -> 
       msg "@[%b@]" b
 
-  | _ -> Error.simple_error "unimplemented"
-
 and format_op = function
   | OSemi -> msg ";"
   | OMinus  -> msg "-"
