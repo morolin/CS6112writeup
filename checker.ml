@@ -199,7 +199,7 @@ let rec substitute typ sigma = match typ with
   | TString -> typ
 
   | TProduct(t1, t2) ->
-    TProduct((substitute t1 sigma),(substitute t2 sigma))
+    (substitute t1 sigma) ^* (substitute t2 sigma)
   | TData(typs, id) ->
     TData(List.map (fun t -> substitute t sigma) typs, id)
   | TFunction(t1, t2) -> (substitute t1 sigma) ^> (substitute t2 sigma)
@@ -344,7 +344,7 @@ let rec assign_types free (gamma, delta) info pattern t =
         let (bs2, constraints2) =
             assign_types free (gamma, delta) info p2 t2 in
         (BindSet.union bs1 bs2,
-          cunion [constraints1; constraints2; ceq t (TProduct(t1,t2))])
+          cunion [constraints1; constraints2; ceq t (t1 ^* t2)])
 
 let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
   match expr with
@@ -456,7 +456,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           typecheck_exp free gamma delta expr1 in
       let (typ2, constraints2, expr2') =
           typecheck_exp free gamma delta expr2 in
-      (TProduct (typ1, typ2),
+      (typ1 ^* typ2,
         cunion [constraints1; constraints2],
         EPair(info, expr1', expr2'))
     | ECase (info, expr1, pat_exprs) ->
