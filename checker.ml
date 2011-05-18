@@ -43,13 +43,13 @@ module ConstraintSet = Set.Make (
     type t = typ * typ
   end )
 
-type subst = typ Id.Map.t 
+type subst = typ Id.Map.t
 type constrt = ConstraintSet.t
 
 module TypeListSet = Set.Make (
   struct
     let compare = compare
-    type t = typ list * subst 
+    type t = typ list * subst
   end )
 
 open Util
@@ -91,15 +91,107 @@ let ceq t1 t2 = ConstraintSet.singleton (t1, t2)
 
 let c0 = ConstraintSet.empty
 
-let free_vars (e:exp) =
-  let symbols = Syntax.fv e in
-  let rec vars n = 
+let free_vars used_symbols =
+  let rec vars n =
     let id = (dummy,None,"t"^(string_of_int n)) in
-    if Id.Set.mem id symbols then vars (n+1) else
+    if Id.Set.mem id used_symbols then vars (n+1) else
       Node(id, lazy(vars (n+1)))
-  in vars 0
+  in lazy(vars 0)
 
-let lazy_get ll = 
+let rec type_vars = function
+  | TUnit -> Id.Set.empty
+  | TBool -> Id.Set.empty
+  | TInteger -> Id.Set.empty
+  | TChar -> Id.Set.empty
+  | TString -> Id.Set.empty
+
+  | TProduct(t1,t2) -> Id.Set.union (type_vars t1) (type_vars t2)
+  | TData(ts,id) ->
+    List.fold_left
+      (fun s t -> Id.Set.union s (type_vars t))
+      (Id.Set.singleton id)
+      ts
+
+  | TFunction(t1,t2) -> Id.Set.union (type_vars t1) (type_vars t2)
+  | TVar(id) -> Id.Set.singleton id
+
+let type_opt_vars = function
+  | Some t -> type_vars t
+  | None -> Id.Set.empty
+
+let rec bind_vars = function
+  | Bind(_,pat,t_opt,e) ->
+    (* NOTE: I *think* that going over the pattern is unnecessary, but it
+     * doesn't hurt
+     *)
+    Id.Set.union
+      (Id.Set.union (exp_vars e) (pat_vars pat))
+      (type_opt_vars t_opt)
+
+and exp_vars = function
+  | EVar (_,id) -> Id.Set.singleton id
+  | EApp (_, e1,e2) -> Id.Set.union (exp_vars e1) (exp_vars e2)
+  | EFun (_,Param(_,p,t_opt),e) ->
+    Id.Set.union
+      (Id.Set.union (pat_vars p) (exp_vars e))
+      (type_opt_vars t_opt)
+  | ECond (_,e1,e2,e3) ->
+    Id.Set.union
+      (Id.Set.union (exp_vars e1) (exp_vars e2))
+      (exp_vars e3)
+  | ELet (_,bind,e) -> Id.Set.union (bind_vars bind) (exp_vars e)
+  | EAsc (_,e,t) -> Id.Set.union (exp_vars e) (type_vars t)
+  | EOver (_,_,es) ->
+    List.fold_left (fun s e -> Id.Set.union s (exp_vars e)) Id.Set.empty es
+
+  | EPair (_,e1,e2) -> Id.Set.union (exp_vars e1) (exp_vars e2)
+  | ECase (_,e,pes) ->
+    List.fold_left
+      (fun s (p, e) -> Id.Set.union(Id.Set.union (pat_vars p) (exp_vars e)) s)
+      (exp_vars e)
+      pes
+
+  | EUnit(_)    -> Id.Set.empty
+  | EInteger(_) -> Id.Set.empty
+  | EChar(_)    -> Id.Set.empty
+  | EString(_)  -> Id.Set.empty
+  | EBool(_)    -> Id.Set.empty
+
+and pat_vars = function
+  | PWild(_) -> Id.Set.empty
+  | PUnit(_) -> Id.Set.empty
+  | PBool(_) -> Id.Set.empty
+  | PInteger(_) -> Id.Set.empty
+  | PString(_) -> Id.Set.empty
+  | PVar(_,id,t_opt) ->
+    Id.Set.add id (type_opt_vars t_opt)
+  | PData(_,id,pat_opt) ->
+    let set = (match pat_opt with
+    | Some pat -> pat_vars pat
+    | None -> Id.Set.empty) in
+    Id.Set.add id set
+  | PPair(_,p1,p2) -> Id.Set.union (pat_vars p1) (pat_vars p2)
+
+let decl_vars = function
+  | DLet (_,bind) ->
+    bind_vars bind
+  | DType (_, ids, id, labels) ->
+    let idset =
+      List.fold_left (fun s id -> Id.Set.add id s) (Id.Set.singleton id) ids in
+    let add_label set (id, t_opt) =
+      Id.Set.union
+        (Id.Set.add id set)
+        (type_opt_vars t_opt)
+    in
+    List.fold_left add_label idset labels
+
+let modl_vars (Modl(_,_,ds)) =
+  List.fold_left
+      (fun set d -> Id.Set.union set (decl_vars d))
+      Id.Set.empty
+      ds
+
+let lazy_get ll =
   match Lazy.force(!ll) with
     | Empty -> failwith "List not infinite"
     | Node (i, ls) -> ll := ls; i
@@ -110,7 +202,7 @@ let dict_ftv gamma =
   in
   Id.Map.fold add_entry gamma Id.Set.empty
 
-let rec substitute typ sigma = match typ with 
+let rec substitute typ sigma = match typ with
   | TUnit -> typ
   | TBool -> typ
   | TInteger -> typ
@@ -127,7 +219,7 @@ let rec substitute typ sigma = match typ with
       Id.Map.find id sigma
     else
       typ
- 
+
 let sub_constraints sub constraints =
   ConstraintSet.fold
     (fun (t1, t2) set ->
@@ -151,7 +243,7 @@ let compose (sigma:subst) (gamma:subst) : subst =
   let output = Id.Map.map (fun typ -> substitute typ sigma) gamma in
   Id.Map.fold
     (fun k v acc ->
-      if Id.Map.mem k gamma then 
+      if Id.Map.mem k gamma then
         acc
       else
         Id.Map.add k v acc)
@@ -184,7 +276,7 @@ let rec unify cs =
           (* TODO(astory) add case for TData *)
 
 let unify_err cs =
-  match unify cs with 
+  match unify cs with
   | Some x -> x
   | None -> raise (TypeException (Info.M (""), "Could not unify"))
 
@@ -230,7 +322,7 @@ let rec assign_types free (gamma, delta, constraints) info pattern t alphas =
               let out_t' = substitute out_t substitution in
               let (gamma', constraints') =
                 (match pat_opt with
-                | Some(pattern) -> 
+                | Some(pattern) ->
                   assign_types free (gamma, delta, constraints)
                     info pattern in_t' alphas
                 | None -> (gamma, constraints)
@@ -291,7 +383,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         in
         let (t, constraints'') = typecheck_exp free gamma' delta e in
         (TFunction(t1, t), cunion [constraints''; constraints']))
-    | ECond(i,e1,e2,e3) -> 
+    | ECond(i,e1,e2,e3) ->
       let (t1, c1) = typecheck_exp free gamma delta e1 in
       let (t2, c2) = typecheck_exp free gamma delta e2 in
       let (t3, c3) = typecheck_exp free gamma delta e3 in
@@ -338,7 +430,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       (match TypeListSet.cardinal matches with
       | 0 -> raise
         (TypeException(info, "No matches for overloaded operator"))
-      | 1 -> 
+      | 1 ->
         let (types, subst) = TypeListSet.choose matches in
         (* These types are as specific as they're going to get TODO right? *)
         let types' = List.map (fun t -> substitute t subst) types in
@@ -377,12 +469,11 @@ and check_let free gamma delta info pat eq_t expr =
   let (expr_t, constraints) = typecheck_exp free gamma delta expr in
   assign_types free (gamma, delta, constraints) info pat expr_t alphas
 
-let typecheck_decl (gamma, delta, constraints) decl =
+let typecheck_decl free (gamma, delta, constraints) decl =
   match decl with
     | DLet (info, bind) ->
-      (match bind with 
+      (match bind with
         | Bind (info, pattern, typ, expr) ->
-          let free = ref (lazy (free_vars expr)) in
           let (gamma', constraints') =
             check_let free gamma delta info pattern typ expr in
           gamma', delta, cunion [constraints; constraints'])
@@ -401,12 +492,15 @@ let typecheck_decl (gamma, delta, constraints) decl =
       let delta' = Id.Map.add id labels delta in
       (gamma', delta', constraints)
 
-let typecheck_modl = function
+let typecheck_modl modl =
+  let used_symbols = modl_vars modl in
+  let free = ref (free_vars used_symbols) in
+  match modl with
   | Modl (info, m, ds) ->
     let gamma = Id.Map.empty in
     let delta = Id.Map.empty in
     let constraints = ConstraintSet.empty in
     let (_,_,constraints') =
-        List.fold_left typecheck_decl (gamma, delta, constraints) ds in
+        List.fold_left (typecheck_decl free) (gamma, delta, constraints) ds in
     let _ = unify_err constraints' in
     ()
