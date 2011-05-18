@@ -58,33 +58,16 @@ module BindSet = Set.Make (
     type t = Id.t * typ
   end )
 
-open Util
-
 let dummy = Info.dummy("dummy info")
 
 exception TypeException of (Info.t * string)
 
-let empty_scheme t = (Id.Set.empty, t)
-
 let rec vars n = lazy (
-    Node((dummy, None, "a" ^ (string_of_int n)), vars (n+1))
+    Util.Node((dummy, None, "a" ^ (string_of_int n)), vars (n+1))
 )
 
 let idMapSingleton k v =
   Id.Map.add k v Id.Map.empty
-
-let rec get_first_fresh set llist =
-    match Lazy.force(llist) with
-      | Empty -> failwith "List not infinite"
-      | Node (name, l) ->
-        if not (Id.Set.mem name set) then name else get_first_fresh set l
-
-(* Generates a variable that is fresh in exp, and does not conflict with type or
-regular variables *)
-let fresh (info, exp) =
-    let fvs = Id.Set.union (Syntax.fv exp) (Syntax.ftv_exp exp) in
-    let var = get_first_fresh fvs (vars 0) in
-    TVar(var)
 
 let fv var typ =
     Id.Set.mem var (Syntax.ftv typ)
@@ -101,7 +84,7 @@ let free_vars used_symbols =
   let rec vars n =
     let id = (dummy,None,"t"^(string_of_int n)) in
     if Id.Set.mem id used_symbols then vars (n+1) else
-      Node(id, lazy(vars (n+1)))
+      Util.Node(id, lazy(vars (n+1)))
   in lazy(vars 0)
 
 let rec type_vars = function
@@ -199,8 +182,8 @@ let modl_vars (Modl(_,_,ds)) =
 
 let lazy_get ll =
   match Lazy.force(!ll) with
-    | Empty -> failwith "List not infinite"
-    | Node (i, ls) -> ll := ls; i
+    | Util.Empty -> failwith "List not infinite"
+    | Util.Node (i, ls) -> ll := ls; i
 
 let dict_ftv gamma =
   let add_entry _ (Scheme(a's,t)) set =
@@ -371,7 +354,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       else
         raise (TypeException (info, "Unbound value " ^ (Id.string_of_t id)))
     | EApp (info, expr1, expr2) ->
-      let resultant_type = fresh (info, expr) in
+      let resultant_type = TVar(lazy_get free) in
       let (typ1, constraints1) =
           typecheck_exp free gamma delta expr1 in
       let (typ2, constraints2) =
@@ -386,7 +369,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
     | EFun (info, param, e) ->
       (match param with
       | Param (param_info, pattern, typ) ->
-        let t1 = fresh(info, expr) in
+        let t1 = TVar(lazy_get free) in
         let constraints = (match typ with
           | Some t -> ceq t1 t
           | None -> c0) in
