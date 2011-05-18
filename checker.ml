@@ -199,9 +199,9 @@ let rec substitute typ sigma = match typ with
   | TString -> typ
 
   | TProduct(t1, t2) ->
-  	TProduct((substitute t1 sigma),(substitute t2 sigma))
+    TProduct((substitute t1 sigma),(substitute t2 sigma))
   | TData(typs, id) ->
-  	TData(List.map (fun t -> substitute t sigma) typs, id)
+    TData(List.map (fun t -> substitute t sigma) typs, id)
   | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
   | TVar(id) ->
     if Id.Map.mem id sigma then
@@ -350,14 +350,14 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       if Id.Map.mem id gamma then
         let Scheme(ids, t) = Id.Map.find id gamma in
         let substitution = create_substitution free ids in
-        (substitute t substitution, c0)
+        (substitute t substitution, c0, expr)
       else
         raise (TypeException (info, "Unbound value " ^ (Id.string_of_t id)))
     | EApp (info, expr1, expr2) ->
       let resultant_type = TVar(lazy_get free) in
-      let (typ1, constraints1) =
+      let (typ1, constraints1, expr1') =
           typecheck_exp free gamma delta expr1 in
-      let (typ2, constraints2) =
+      let (typ2, constraints2, expr2') =
           typecheck_exp free gamma delta expr2 in
       let constraints' =
           cunion [
@@ -365,7 +365,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
               constraints2;
               ceq typ1 (TFunction (typ2, resultant_type))]
       in
-      (resultant_type, constraints')
+      (resultant_type, constraints', EApp(info, expr1', expr2'))
     | EFun (info, param, e) ->
       (match param with
       | Param (param_info, pattern, typ) ->
@@ -382,27 +382,31 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           Id.Map.add id (Scheme(Id.Set.empty, t)) gamma
         in
         let gamma' = BindSet.fold add_binding bind_set gamma in
-        let (t, constraints'') = typecheck_exp free gamma' delta e in
-        (TFunction(t1, t), cunion [constraints; constraints'; constraints'']))
+        let (t, constraints'', e') = typecheck_exp free gamma' delta e in
+        (TFunction(t1, t),
+          cunion [constraints; constraints'; constraints''],
+          EFun(info, param, e')))
     | ECond(i,e1,e2,e3) ->
-      let (t1, c1) = typecheck_exp free gamma delta e1 in
-      let (t2, c2) = typecheck_exp free gamma delta e2 in
-      let (t3, c3) = typecheck_exp free gamma delta e3 in
+      let (t1, c1, e1') = typecheck_exp free gamma delta e1 in
+      let (t2, c2, e2') = typecheck_exp free gamma delta e2 in
+      let (t3, c3, e3') = typecheck_exp free gamma delta e3 in
       let constraints' =
         cunion [
           c1; c2; c3;
           ceq t1 TBool;
           ceq t2 t3]
       in
-      (t2, constraints')
-    | ELet (_, Bind (info, pattern, typ, expr'), expr) ->
-      let (gamma', constraints') =
-        check_let free gamma delta info pattern typ expr' in
-      let (t, constraints'') = typecheck_exp free gamma' delta expr in
-      (t, cunion [constraints'; constraints''])
+      (t2, constraints', ECond(i,e1',e2',e3'))
+    | ELet (l_info, Bind (info, pattern, typ, e_bind), expr) ->
+      let (gamma', constraints', e_bind') =
+        check_let free gamma delta info pattern typ e_bind in
+      let (t, constraints'', expr') = typecheck_exp free gamma' delta expr in
+      (t,
+        cunion [constraints'; constraints''],
+        ELet (l_info, Bind(info, pattern, typ, e_bind'), expr'))
     | EAsc (info, expr, typ) ->
-      let (expr_t, constraints) = typecheck_exp free gamma delta expr in
-      (expr_t, cadd expr_t typ constraints)
+      let (expr_t, constraints, expr') = typecheck_exp free gamma delta expr in
+      (expr_t, cadd expr_t typ constraints, EAsc(info, expr', typ))
     | EOver (info, op, exprs) ->
       (* type check and unify all the expressions as much as possible, apply
        * substitutions
@@ -418,7 +422,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         List.map (fun e -> typecheck_exp free gamma delta e) exprs in
       let build_matches set opt =
         let (types, _, _) = opt in
-        let build_check constraints (t1, (t2, cs)) =
+        let build_check constraints (t1, (t2, cs, _)) =
           cunion [constraints; ceq t1 t2; cs]
         in
         let cs = List.fold_left build_check c0 (List.combine types checked) in
@@ -433,45 +437,52 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       | 0 -> raise
         (TypeException(info, "No matches for overloaded operator"))
       | 1 ->
-        (* TODO: leave for now, but we need to have a way to change the
-         * expression going up *)
         let ((types, ret_type, name), cs) = OpSet.choose matches in
-        (ret_type, cs)
-        (* Old code, will be useful when we emit an expression, for building up
-         * the expression 
-        let build_type t1 t2 = TFunction(t1, t2) in
-        (List.fold_left build_type real_name types', c0)
-        *)
+        let exprs' = List.map (fun (_,_,e') -> e') checked in
+        (* + a b c -> App(App(App(+,a),b),c) *)
+        let expr' = List.fold_left
+          (fun f arg -> EApp(info,f,arg))
+          (EVar(dummy, name))
+          exprs'
+        in
+
+        (ret_type, cs, expr')
       | _ -> raise
         (TypeException(info, "Too many matches for overloaded operator"))
       )
 
     | EPair (info, expr1, expr2) ->
-      let (typ1, constraints1) =
+      let (typ1, constraints1, expr1') =
           typecheck_exp free gamma delta expr1 in
-      let (typ2, constraints2) =
+      let (typ2, constraints2, expr2') =
           typecheck_exp free gamma delta expr2 in
-      (TProduct (typ1, typ2), cunion [constraints1; constraints2])
+      (TProduct (typ1, typ2),
+        cunion [constraints1; constraints2],
+        EPair(info, expr1', expr2'))
     | ECase (info, expr1, pat_exprs) ->
-      (* TODO(astory): verify *)
       let output_t = TVar(lazy_get free) in
-      let build_check (t, cs) (p, e) =
-        let (gamma', cs') = check_let free gamma delta info p None expr1 in
-        let (t', cs'') = typecheck_exp free gamma' delta e in
-        (t, cunion [cs; cs'; cs''; ceq t t'])
+      let (_,_,expr1') = typecheck_exp free gamma delta expr in
+      let build_check (t, cs, pe's) (p, e) =
+        let (gamma', cs', _) = check_let free gamma delta info p None expr1 in
+        let (t', cs'', e') = typecheck_exp free gamma' delta e in
+        (t, cunion [cs; cs'; cs''; ceq t t'], List.append pe's [(p,e')])
       in
-      List.fold_left build_check (output_t, c0) pat_exprs
+      let (t, constraints, pe's) =
+        List.fold_left build_check (output_t, c0, []) pat_exprs in
+      (t, constraints, ECase(info, expr1', pe's))
 
-    | EUnit    (info)        -> (TUnit,    ConstraintSet.empty)
-    | EBool    (info, value) -> (TBool,    ConstraintSet.empty)
-    | EInteger (info, value) -> (TInteger, ConstraintSet.empty)
-    | EChar    (info, value) -> (TChar,    ConstraintSet.empty)
-    | EString  (info, value) -> (TString,  ConstraintSet.empty)
+    | EUnit    (info)        -> (TUnit,    ConstraintSet.empty, expr)
+    | EBool    (info, value) -> (TBool,    ConstraintSet.empty, expr)
+    | EInteger (info, value) -> (TInteger, ConstraintSet.empty, expr)
+    | EChar    (info, value) -> (TChar,    ConstraintSet.empty, expr)
+    | EString  (info, value) -> (TString,  ConstraintSet.empty, expr)
 
 and check_let free gamma delta info pat eq_t expr =
   (* Check bound expression, and calculate bindings and constraints resulting
    * from its binding *)
-  let (expr_t, constraints) = typecheck_exp free gamma delta expr in
+  (* TODO(astory): consider moving out of function and passing in expr_t.  This
+   * would make ECase evaluations more efficient *)
+  let (expr_t, constraints, expr') = typecheck_exp free gamma delta expr in
   let (bind_set, constraints') =
     assign_types free (gamma, delta) info pat expr_t in
   (* If a type annotation is specified, enforce it *)
@@ -487,16 +498,17 @@ and check_let free gamma delta info pat eq_t expr =
     Id.Map.add id (Scheme(alphas, t')) gamma
   in
   let gamma' = BindSet.fold add_binding bind_set gamma in
-  (gamma', constraints'')
+  (gamma', constraints'', expr')
 
 let typecheck_decl free (gamma, delta, constraints) decl =
   match decl with
-    | DLet (info, bind) ->
-      (match bind with
-        | Bind (info, pattern, typ, expr) ->
-          let (gamma', constraints') =
-            check_let free gamma delta info pattern typ expr in
-          gamma', delta, cunion [constraints; constraints'])
+    | DLet (l_info, Bind (info, pattern, typ, expr)) ->
+        let (gamma', constraints', expr') =
+          check_let free gamma delta info pattern typ expr in
+        gamma',
+        delta,
+        cunion [constraints; constraints'],
+        DLet(l_info, Bind(info, pattern, typ, expr'))
     | DType (info, ids, id, labels) ->
       let ts = List.map (fun id -> TVar(id)) ids in
       let idset = List.fold_left
@@ -510,7 +522,7 @@ let typecheck_decl free (gamma, delta, constraints) decl =
       in
       let gamma' = List.fold_left add_constructor gamma labels in
       let delta' = Id.Map.add id labels delta in
-      (gamma', delta', constraints)
+      (gamma', delta', constraints, decl)
 
 let typecheck_modl modl =
   let used_symbols = modl_vars modl in
@@ -520,7 +532,12 @@ let typecheck_modl modl =
     let gamma = Id.Map.empty in
     let delta = Id.Map.empty in
     let constraints = ConstraintSet.empty in
-    let (_,_,constraints') =
-        List.fold_left (typecheck_decl free) (gamma, delta, constraints) ds in
+    let build_decls (gamma, delta, constraints, ds) d =
+      let (gamma', delta', constraints', d') =
+        typecheck_decl free (gamma, delta, constraints) d in
+      (gamma', delta', constraints', List.append ds [d'])
+    in
+    let (_,_,constraints', ds') =
+        List.fold_left build_decls (gamma, delta, constraints, []) ds in
     let _ = unify_err constraints' in
-    ()
+    Modl(info, m, ds')
