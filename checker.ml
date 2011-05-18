@@ -28,6 +28,7 @@
 (* Type checking for the Frenetic syntax                                      *)
 (* $Id$ *)
 (******************************************************************************)
+
 (*TODO(astory): useful errors*)
 module StrMap = Map.Make (String)
 include Syntax
@@ -180,6 +181,7 @@ let rec unify cs =
           | (TFunction(s1,s2),TFunction(t1,t2)) ->
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
           | _ -> None
+          (* TODO(astory) add case for TData *)
 
 let unify_err cs =
   match unify cs with 
@@ -385,15 +387,15 @@ let typecheck_decl (gamma, delta, constraints) decl =
             check_let free gamma delta info pattern typ expr in
           gamma', delta, cunion [constraints; constraints'])
     | DType (info, ids, id, labels) ->
+      let ts = List.map (fun id -> TVar(id)) ids in
+      let idset = List.fold_left
+        (fun set id -> Id.Set.add id set)
+        Id.Set.empty
+        ids in
       let add_constructor g (lid, typ_opt)=
         let t = (match typ_opt with | Some x -> x | None -> TUnit) in
-        let ts = List.map (fun id -> TVar(id)) ids in
-        let idset = List.fold_left
-            (fun set id -> Id.Set.add id set)
-            Id.Set.empty
-            ids in
         let scheme = Scheme(idset, TFunction(t,TData(ts,id))) in
-        Id.Map.add lid scheme g
+        Id.Map.add lid scheme g  
       in
       let gamma' = List.fold_left add_constructor gamma labels in
       let delta' = Id.Map.add id labels delta in
