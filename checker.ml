@@ -218,7 +218,6 @@ let sub_constraints sub constraints =
 
 let create_substitution free ids =
   let build_substitution id sub =
-    (* NOTE: is this safe? *)
     let fresh = lazy_get free in (* Updates free *)
     Id.Map.add id (TVar(fresh)) sub
   in
@@ -262,8 +261,7 @@ let rec unify cs =
           | (TFunction(s1,s2),TFunction(t1,t2)) ->
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
           | (TData(ts1,id1), TData(ts2,id2)) ->
-            if (Id.equal id1 id2)
-                && (List.length (ts1) == List.length(ts2)) then
+            if (Id.equal id1 id2) && (List.length(ts1) == List.length(ts2)) then
               unify
                 (List.fold_left
                   (fun cs (t1, t2) -> cadd t1 t2 cs)
@@ -279,7 +277,6 @@ let unify_err cs =
   | Some x -> x
   | None -> raise (TypeException (Info.M (""), "Could not unify"))
 
-(* TODO(astory): remove constraints from input *)
 let rec assign_types free (gamma, delta) info pattern t =
     match pattern with
       | PWild (info') -> (BindSet.empty, c0)
