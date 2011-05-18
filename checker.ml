@@ -278,8 +278,18 @@ let rec unify cs =
             compose_opt (unify (sub_constraints sub cs')) sub
           | (TFunction(s1,s2),TFunction(t1,t2)) ->
             unify (cunion [cs'; ceq s1 t1; ceq s2 t2])
+          | (TData(ts1,id1), TData(ts2,id2)) ->
+            if (Id.equal id1 id2)
+                && (List.length (ts1) == List.length(ts2)) then
+              unify
+                (List.fold_left
+                  (fun cs (t1, t2) -> cadd t1 t2 cs)
+                  cs'
+                  (List.combine ts1 ts2))
+            else None
+          (* TODO(astory): Do we need to add product, and primitive equality
+           * too?  I bet we do :/*)
           | _ -> None
-          (* TODO(astory) add case for TData *)
 
 let unify_err cs =
   match unify cs with
