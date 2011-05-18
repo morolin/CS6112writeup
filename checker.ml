@@ -202,7 +202,7 @@ let rec substitute typ sigma = match typ with
     TProduct((substitute t1 sigma),(substitute t2 sigma))
   | TData(typs, id) ->
     TData(List.map (fun t -> substitute t sigma) typs, id)
-  | TFunction(t1, t2) -> TFunction((substitute t1 sigma),(substitute t2 sigma))
+  | TFunction(t1, t2) -> (substitute t1 sigma) ^> (substitute t2 sigma)
   | TVar(id) ->
     if Id.Map.mem id sigma then
       Id.Map.find id sigma
@@ -365,7 +365,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           cunion [
               constraints1;
               constraints2;
-              ceq typ1 (TFunction (typ2, resultant_type))]
+              ceq typ1 (typ2 ^> resultant_type)]
       in
       (resultant_type, constraints', EApp(info, expr1', expr2'))
     | EFun (info, param, e) ->
@@ -385,9 +385,9 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         in
         let gamma' = BindSet.fold add_binding bind_set gamma in
         let (t, constraints'', e') = typecheck_exp free gamma' delta e in
-        (TFunction(t1, t),
+        (t1 ^> t),
           cunion [constraints; constraints'; constraints''],
-          EFun(info, param, e')))
+          EFun(info, param, e'))
     | ECond(i,e1,e2,e3) ->
       let (t1, c1, e1') = typecheck_exp free gamma delta e1 in
       let (t2, c2, e2') = typecheck_exp free gamma delta e2 in
@@ -517,7 +517,7 @@ let typecheck_decl free (gamma, delta, constraints) decl =
         ids in
       let add_constructor g (lid, typ_opt)=
         let t = (match typ_opt with | Some x -> x | None -> TUnit) in
-        let scheme = Scheme(idset, TFunction(t,TData(ts,id))) in
+        let scheme = Scheme(idset, t ^> TData(ts,id)) in
         Id.Map.add lid scheme g  
       in
       let gamma' = List.fold_left add_constructor gamma labels in
