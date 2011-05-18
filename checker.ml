@@ -410,8 +410,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       let (expr_t, constraints, expr') = typecheck_exp free gamma delta expr in
       (expr_t, cadd expr_t typ constraints, EAsc(info, expr', typ))
     | EOver (info, op, exprs) ->
-      (* type check and unify all the expressions as much as possible, apply
-       * substitutions
+      (* type check and unify all the expressions as much as possible,
        * table full of operators and types they expect, if exactly one match,
        * use it, otherwise, barf
        *
@@ -419,10 +418,10 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
        * Soft matches
        *)
       (* Of type: ((typ list) * [return] typ * id) list *)
-      let options = [] in (* TODO(astory): this needs to be a real lookup *)
+      let options = op_options op in
       let checked =
         List.map (fun e -> typecheck_exp free gamma delta e) exprs in
-      let build_matches set opt =
+      let build_matches opt set =
         let (types, _, _) = opt in
         let build_check constraints (t1, (t2, cs, _)) =
           cunion [constraints; ceq t1 t2; cs]
@@ -434,7 +433,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         | None -> set)
       in
       let matches =
-        List.fold_left build_matches OpSet.empty options in
+        OpOptionSet.fold build_matches options OpSet.empty in
       (match OpSet.cardinal matches with
       | 0 -> raise
         (TypeException(info, "No matches for overloaded operator"))
@@ -447,7 +446,6 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           (EVar(dummy, name))
           exprs'
         in
-
         (ret_type, cs, expr')
       | _ -> raise
         (TypeException(info, "Too many matches for overloaded operator"))

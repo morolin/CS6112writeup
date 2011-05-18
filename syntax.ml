@@ -110,6 +110,13 @@ type decl =
 (* modules *)
 type modl = Modl of Info.t * Id.t * decl list
 
+(* Set to store overloaded operator possibilities *)
+module OpOptionSet = Set.Make (
+  struct
+    let compare = compare
+    type t = typ list * typ * Id.t
+  end )
+
 (* infix constructors for functions and products *)
 let (^>) s1 s2 = TFunction(s1,s2)
 let (^*) s1 s2 = TProduct(s1,s2)
@@ -423,3 +430,12 @@ let rec ftv_exp exp = match exp with
   | EChar (_,_)    -> Id.Set.empty
   | EString (_,_)  -> Id.Set.empty
   | EBool (_,_)    -> Id.Set.empty
+
+let op_options = function
+  | OSemi -> OpOptionSet.empty
+  | OEqual -> OpOptionSet.empty
+  | OMinus -> OpOptionSet.empty
+  | OLt -> OpOptionSet.empty
+  | OLeq -> OpOptionSet.empty
+  | OGt -> OpOptionSet.empty
+  | OGeq -> OpOptionSet.empty
