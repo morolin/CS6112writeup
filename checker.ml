@@ -52,6 +52,12 @@ module TypeListSet = Set.Make (
     type t = typ list * subst
   end )
 
+module BindSet = Set.Make (
+  struct
+    let compare = compare
+    type t = Id.t * typ
+  end )
+
 open Util
 
 let dummy = Info.dummy("dummy info")
@@ -280,22 +286,23 @@ let unify_err cs =
   | Some x -> x
   | None -> raise (TypeException (Info.M (""), "Could not unify"))
 
-let rec assign_types free (gamma, delta, constraints) info pattern t alphas =
+(* TODO(astory): remove constraints from input *)
+let rec assign_types free (gamma, delta, constraints) info pattern t =
     match pattern with
-      | PWild (info') -> (gamma, constraints)
-      | PUnit (info') -> (gamma, cadd TUnit t constraints)
-      | PBool (info', _) -> (gamma, cadd TBool t constraints)
-      | PInteger (info', _) -> (gamma, cadd TInteger t constraints)
-      | PString (info', _) -> (gamma, cadd TString t constraints)
+      | PWild (info') -> (BindSet.empty, constraints)
+      | PUnit (info') -> (BindSet.empty, cadd TUnit t constraints)
+      | PBool (info', _) -> (BindSet.empty, cadd TBool t constraints)
+      | PInteger (info', _) -> (BindSet.empty, cadd TInteger t constraints)
+      | PString (info', _) -> (BindSet.empty, cadd TString t constraints)
       | PVar (_, id, typ_opt) ->
         (match typ_opt with
           | Some t' ->
-            (Id.Map.add id (Scheme(alphas, t)) gamma, cadd t' t constraints)
+            (BindSet.singleton (id,t), cadd t' t constraints)
           | None ->
-            (Id.Map.add id (Scheme(alphas, t)) gamma, constraints))
+            (BindSet.singleton (id,t), constraints))
       | PData (info, id, pat_opt) ->
         if Id.Map.mem id gamma then
-          (* What we're doing: TODO:verify w/ Nate
+          (* What we're doing:
            * we start with something like Cons(pattern).
            *
            * We first find out that Cons is of type
@@ -320,14 +327,14 @@ let rec assign_types free (gamma, delta, constraints) info pattern t alphas =
               let substitution = create_substitution free ids in
               let in_t' = substitute in_t substitution in
               let out_t' = substitute out_t substitution in
-              let (gamma', constraints') =
+              let (bindset, constraints') =
                 (match pat_opt with
                 | Some(pattern) ->
                   assign_types free (gamma, delta, constraints)
-                    info pattern in_t' alphas
-                | None -> (gamma, constraints)
+                    info pattern in_t'
+                | None -> (BindSet.empty, constraints)
                 ) in
-              (gamma', cunion [constraints'; ceq t out_t'])
+              (bindset, cunion [constraints'; ceq t out_t'])
             | _ ->
               Error.simple_error
                 ("Type constructor "^(Id.string_of_t id)^" not a function")
@@ -335,17 +342,13 @@ let rec assign_types free (gamma, delta, constraints) info pattern t alphas =
         else
           raise (TypeException(info, ("Unknown data type" ^ (Id.string_of_t id))))
       | PPair (info, p1, p2) ->
-        let fvs = Syntax.ftv t in
-        let t1_name = get_first_fresh fvs (vars 0) in
-        let fvs' = Id.Set.add t1_name fvs in
-        let t2_name = get_first_fresh fvs' (vars 0) in
-        let t1 = TVar(t1_name) in
-        let t2 = TVar(t2_name) in
-        let (gamma', constraints') =
-            assign_types free (gamma, delta, constraints) info p1 t1 alphas in
-        let (gamma'', constraints'') =
-            assign_types free (gamma', delta, constraints') info p2 t2 alphas in
-        (gamma'', cunion [constraints''; ceq t (TProduct(t1,t2))])
+        let t1 = TVar(lazy_get free) in
+        let t2 = TVar(lazy_get free) in
+        let (bs1, constraints') =
+            assign_types free (gamma, delta, constraints) info p1 t1 in
+        let (bs2, constraints'') =
+            assign_types free (gamma, delta, constraints') info p2 t2 in
+        (BindSet.union bs1 bs2, cunion [constraints''; ceq t (TProduct(t1,t2))])
 
 let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
   match expr with
@@ -376,11 +379,15 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         let constraints = (match typ with
           | Some t -> ceq t1 t
           | None -> c0) in
-        let (gamma', constraints') =
-          assign_types free (gamma, delta, constraints)
-            (*NOTE:is the empty set of free vars the right choice here? *)
-            param_info pattern t1 Id.Set.empty
+        let (bind_set, constraints') =
+          assign_types free (gamma, delta, constraints) param_info pattern t1
         in
+        (* Bind with the empty type scheme because we're not generalizing types
+         *)
+        let add_binding (id,t) gamma =
+          Id.Map.add id (Scheme(Id.Set.empty, t)) gamma
+        in
+        let gamma' = BindSet.fold add_binding bind_set gamma in
         let (t, constraints'') = typecheck_exp free gamma' delta e in
         (TFunction(t1, t), cunion [constraints''; constraints']))
     | ECond(i,e1,e2,e3) ->
@@ -465,9 +472,25 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
     | EString  (info, value) -> (TString,  ConstraintSet.empty)
 
 and check_let free gamma delta info pat eq_t expr =
-  let alphas = Id.Set.diff (Syntax.ftv_exp expr) (dict_ftv gamma) in
+  (* Check bound expression, and calculate bindings and constraints resulting
+   * from its binding *)
   let (expr_t, constraints) = typecheck_exp free gamma delta expr in
-  assign_types free (gamma, delta, constraints) info pat expr_t alphas
+  let (bind_set, constraints') =
+    assign_types free (gamma, delta, constraints) info pat expr_t in
+  (* If a type annotation is specified, enforce it *)
+  let constraints'' = match eq_t with
+    | Some t -> cadd t expr_t constraints'
+    | None -> constraints' in
+  (* Solve constraints, and for each binding substitute, generalize, add to
+   * gamma *)
+  let sub = unify_err constraints'' in (* fail hard *)
+  let add_binding (id,t) gamma =
+    let t' = substitute t sub in
+    let alphas = Id.Set.diff (Syntax.ftv t') (dict_ftv gamma) in
+    Id.Map.add id (Scheme(alphas, t')) gamma
+  in
+  let gamma' = BindSet.fold add_binding bind_set gamma in
+  (gamma', constraints'')
 
 let typecheck_decl free (gamma, delta, constraints) decl =
   match decl with
