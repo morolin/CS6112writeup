@@ -30,7 +30,6 @@
 (******************************************************************************)
 
 (*TODO(astory): useful errors*)
-module StrMap = Map.Make (String)
 include Syntax
 module TypeMap = Map.Make (
   struct
@@ -49,7 +48,7 @@ type constrt = ConstraintSet.t
 module OpSet = Set.Make (
   struct
     let compare = compare
-    type t = OpOptionSet.elt * ConstraintSet.t
+    type t = Overload.OpSet.elt * ConstraintSet.t
   end )
 
 module BindSet = Set.Make (
@@ -418,7 +417,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
        * Soft matches
        *)
       (* Of type: ((typ list) * [return] typ * id) list *)
-      let options = op_options op in
+      let options = Overload.options op in
       let checked =
         List.map (fun e -> typecheck_exp free gamma delta e) exprs in
       let build_matches opt set =
@@ -433,7 +432,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         | None -> set)
       in
       let matches =
-        OpOptionSet.fold build_matches options OpSet.empty in
+        Overload.OpSet.fold build_matches options OpSet.empty in
       (match OpSet.cardinal matches with
       | 0 -> raise
         (TypeException(info, "No matches for overloaded operator"))

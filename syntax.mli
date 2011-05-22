@@ -110,9 +110,6 @@ type decl =
 type modl = Modl of Info.t * Id.t * decl list
 (** Module abstract syntax *)
 
-module OpOptionSet : Set.S with type elt = typ list * Id.t
-(** Set to store overloaded operator possibilities **)
-
 val (^>) : typ -> typ -> typ
 (** [s1 ^> s2] is the function typ from [s1] to [s2]. *)
 
@@ -165,4 +162,3 @@ val ftv : typ -> Id.Set.t
 val fv : exp -> Id.Set.t
 val ftv_exp : exp -> Id.Set.t
 
-val op_options : op -> OpOptionSet.t
