@@ -461,7 +461,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
         EPair(info, expr1', expr2'))
     | ECase (info, expr1, pat_exprs) ->
       let output_t = TVar(lazy_get free) in
-      let (_,_,expr1') = typecheck_exp free gamma delta expr in
+      let (_,_,expr1') = typecheck_exp free gamma delta expr1 in
       let build_check (t, cs, pe's) (p, e) =
         let (gamma', cs', _) = check_let free gamma delta info p None expr1 in
         let (t', cs'', e') = typecheck_exp free gamma' delta e in
