@@ -232,7 +232,7 @@ let rec convert_exp (top:bool) (vs:Id.Set.t) (e:exp) =
       convert_exp false vs (EApp(i,EFun(i,Param(i,pat,typ),exp),l_exp))
     | EAsc(_,e1,_) -> convert_exp top vs e1
     | EOver(_,_,_) ->
-      Error.simple_error "Overloaded operator resolution not implemented" 
+      Error.simple_error "Overloaded operator in AST to convert" 
         
     | EPair(i,e1,e2) ->
       let e1',ds1' = convert_exp false vs e1 in 
