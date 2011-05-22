@@ -114,7 +114,7 @@ type modl = Modl of Info.t * Id.t * decl list
 module OpOptionSet = Set.Make (
   struct
     let compare = compare
-    type t = typ list * typ * Id.t
+    type t = typ list * Id.t
   end )
 
 (* infix constructors for functions and products *)

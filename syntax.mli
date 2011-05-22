@@ -110,7 +110,7 @@ type decl =
 type modl = Modl of Info.t * Id.t * decl list
 (** Module abstract syntax *)
 
-module OpOptionSet : Set.S with type elt = (typ list * typ * Id.t)
+module OpOptionSet : Set.S with type elt = typ list * Id.t
 (** Set to store overloaded operator possibilities **)
 
 val (^>) : typ -> typ -> typ

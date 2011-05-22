@@ -49,7 +49,7 @@ type constrt = ConstraintSet.t
 module OpSet = Set.Make (
   struct
     let compare = compare
-    type t = (typ list * typ * Id.t) * ConstraintSet.t
+    type t = OpOptionSet.elt * ConstraintSet.t
   end )
 
 module BindSet = Set.Make (
@@ -422,7 +422,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       let checked =
         List.map (fun e -> typecheck_exp free gamma delta e) exprs in
       let build_matches opt set =
-        let (types, _, _) = opt in
+        let (types, _) = opt in
         let build_check constraints (t1, (t2, cs, _)) =
           cunion [constraints; ceq t1 t2; cs]
         in
@@ -438,7 +438,7 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
       | 0 -> raise
         (TypeException(info, "No matches for overloaded operator"))
       | 1 ->
-        let ((types, ret_type, name), cs) = OpSet.choose matches in
+        let ((types, name), cs) = OpSet.choose matches in
         let exprs' = List.map (fun (_,_,e') -> e') checked in
         (* + a b c -> App(App(App(+,a),b),c) *)
         let expr' = List.fold_left
@@ -446,7 +446,8 @@ let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
           (EVar(dummy, name))
           exprs'
         in
-        (ret_type, cs, expr')
+        let (ret_type, cs', expr'') = typecheck_exp free gamma delta expr' in
+        (ret_type, cunion [cs;cs'], expr'')
       | _ -> raise
         (TypeException(info, "Too many matches for overloaded operator"))
       )
