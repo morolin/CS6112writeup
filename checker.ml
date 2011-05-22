@@ -345,7 +345,7 @@ let rec assign_types free (gamma, delta) info pattern t =
         (BindSet.union bs1 bs2,
           cunion [constraints1; constraints2; ceq t (t1 ^* t2)])
 
-let rec typecheck_exp free (gamma:scheme Id.Map.t) delta expr =
+let rec typecheck_exp free gamma delta expr =
   match expr with
     | EVar (info, id) ->
       if Id.Map.mem id gamma then

@@ -63,7 +63,7 @@ OCAMLINCLUDES += $(FBASEDIR)
 # Sources
 
 FRENETIC_BASE_SOURCES[] = \
-    checker.ml\
+    checker.mli checker.ml \
     conversion.ml\
     id.mli id.ml \
     overload.mli overload.ml \
