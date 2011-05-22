@@ -38,6 +38,12 @@ module OpSet = Set.Make (
     type t = typ list * Id.t
   end )
 
+let extend_opset : OpSet.t -> OpSet.elt list -> OpSet.t =
+  List.fold_left (fun s e -> OpSet.add e s)
+
+let build_opset : OpSet.elt list -> OpSet.t =
+  extend_opset OpSet.empty
+
 let options = function
   | OSemi -> OpSet.empty
   | OEqual -> OpSet.empty
