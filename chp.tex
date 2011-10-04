@@ -1,0 +1,354 @@
+
+\documentclass[times,10pt]{article}
+
+\usepackage{times}
+\usepackage{epsf}
+\usepackage{prs}
+\usepackage{graphicx}
+\usepackage{fullpage}
+\usepackage{amsmath}
+\usepackage{stmaryrd}
+\usepackage{color}
+
+\def\Skip{\hbox{\bf skip}}
+\def\Else{\hbox{\bf else}}
+\def\mod{\hbox{\bf mod}}
+\def\true{\hbox{\bf true}}
+\def\false{\hbox{\bf false}}
+\let\prsarrow = \mapsto
+
+\begin{document}
+
+\begin{center}
+\Large Language Specification for CHP and Friends
+\end{center}
+
+\section{CHP}
+
+CHP is the highest-level language.  Seen here is CHP with boolean support only.
+
+\subsection{Grammar}
+
+\begin{align*}
+\ell & ::= \top \; | \perp \\
+\mathrm{b} & ::= a \; | \; \ell \; | \; \bar{A} \; | \; A\# \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b}) \\
+\mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | \; (P)\\
+\mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+\mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
+\end{align*}
+
+Above, we are using $a ... z$ to range over variables, and $A ... Z$ to range over channels.
+
+\subsection{Small-Step Semantics}
+
+All of the following rules work up to structural congruence ($\equiv$), which is defined by $\alpha$ conversion and the following rules:
+
+\[
+P || \mathtt{skip} \equiv P \;\;\;\;\;  P || Q \equiv Q || P  \;\;\;\;\;  \mathtt{skip}; P \equiv P \\
+\]
+\[
+P || (Q || R) \equiv (P || Q) || R 
+\]
+\[
+A \bullet B \equiv B \bullet A \;\;\;\;\; ( A \bullet B ) \bullet C \equiv A \bullet ( B \bullet C )
+\]
+
+Additionally, the following rules are augmented by an environment, $\sigma$, which is a mapping from variables to boolean values, $\sigma : \textrm{Var} \rightarrow \mathcal{B}$ 
+
+Boolean simplification $\overset{b}{\rightarrow}$ works as typical on AND and OR, though it is also extended with channel probes ($\bar{A}$), which are true  ($\top$) when a channel wishes to communicate on channel A, and false ($\perp$) otherwise and value probes ($A\#$), which are defined below \textbf{XXX: We should probably define an actual boolean simplification set which includes both probes and value probes.  I couldn't think of a good way to express them easily, as both of these need a context.}.
+
+\begin{align*}
+% Simplify boolean under assignment
+\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle a := b, \sigma\rangle \overset{b}{\rightarrow}  \langle a := b', \sigma \rangle} &\;\; 
+% Assignment
+\frac{}{\langle a := \ell, \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\ell/a] \rangle } \\ \\
+% Sequential Composition
+\frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle }{\langle P_1; P_2, \sigma\rangle \rightarrow \langle P_1^\prime; P_2, \sigma^\prime\rangle} &
+%Parallel Composition
+\;\; \frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle}{\langle P_1 || P_2, \sigma\rangle \rightarrow \langle P_1^\prime || P_2, \sigma^\prime\rangle} \\ \\
+% Deterministic Selection
+\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \; \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } &\;\;
+%Non-deterministic Selection
+ \frac{\sigma \models \textrm{b}_i} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } \\ \\
+% Repeated Deterministic Selection no option good
+\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma\rangle } &\;\; 
+% Repeateed Non-deterministic Selection no options good
+\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma \rangle } 
+\end{align*}
+
+\begin{align*}
+% Repeated Deterministic Selection
+\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } \\
+% Repeated Nondeterministic Selection
+\\ \frac{\sigma \models \textrm{b}_i} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
+\end{align*}
+
+\begin{align*}
+% Simplify Booleans under send
+\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle A!b, \sigma\rangle \overset{b}{\rightarrow}  \langle A!b', \sigma \rangle} &\;\; 
+% Value probe
+\frac{}{\langle A\# \; || \; A!\ell , \sigma\rangle \overset{b}{\rightarrow} \langle \ell \;||\;A!\ell, \sigma \rangle} \\ \\
+% Channel probe?
+% Communication
+\frac{} {\langle A!\ell || A?a, \sigma \rangle \rightarrow \langle \mathtt{skip} ,\sigma[\ell/a] \rangle} &\;\; 
+% Parallel/Series composition
+\frac{\langle P_1 || ... || P_n, \sigma \rangle \rightarrow \langle P_1^\prime || ... || P_n^\prime, \sigma^\prime \rangle } {\langle P_1;\;Q_1 || ... || P_n;\;Q_n, \sigma \rangle \rightarrow \langle P_1^\prime;\;Q_1 || ... || P_n^\prime;\; Q_n, \sigma^\prime \rangle } \\ \\
+% Bullet Send
+\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A!\ell \; || \; P \; || \; A?a , \sigma \rangle
+\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle } & \;\;
+% Bullet receive
+\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A?a \; || \; P \; || \; A!\ell , \sigma \rangle
+\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle }
+\end{align*}
+
+\begin{align*}
+% Bullet send and recieve
+\frac{ \langle C_1 \; || \; C_2 \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime , \sigma^\prime \rangle }{ \langle C_1 \bullet A!\ell \; || \; C_2 \bullet A?a \; || \; P , \sigma \rangle \rightarrow \langle  \mathtt{skip} \; || \; P^\prime, \sigma^\prime[\ell/a] \rangle } & 
+\end{align*}
+
+\section{HSE}
+
+One level lower is the handshaking expansions, which remove operations on channels, and operations on non-booleans.
+
+\subsection{Grammar}
+
+\begin{align*}
+\ell & ::= \top \; | \perp \\
+\mathrm{b} & ::= a \; | \ell \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; ( \mathrm{b} ) \\
+\mathrm{P} & ::= a\uparrow \; | \; a\downarrow \; | \; S \; | \; *S \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | ( P )  \\
+\mathrm{S} & ::= [ b_1 \rightarrow P_1  \talloblong \; ... \; \talloblong b_n \rightarrow P_n ] \; | \; [ b_1 \rightarrow P_1 | \; ... \; | b_n \rightarrow P_n ]
+\end{align*}
+
+\subsection{Small-Step Semantics}
+
+\begin{align*}
+% Assignment
+\frac{}{\langle a \uparrow , \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\top/a]\rangle } &\;\; 
+\frac{}{\langle a \downarrow , \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\perp/a]\rangle }
+\end{align*}
+
+\begin{align*}
+% Sequential Composition
+\frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle }{\langle P_1; P_2, \sigma\rangle \rightarrow \langle P_1^\prime; P_2, \sigma^\prime\rangle} &
+%Parallel Composition
+\;\; \frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle}{\langle P_1 || P_2, \sigma\rangle \rightarrow \langle P_1^\prime || P_2, \sigma^\prime\rangle} \\ \\
+% Deterministic Selection
+\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } &\;\;
+%Non-deterministic Selection
+ \frac{\sigma \models \textrm{b}_i} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } \\ \\
+% Repeated Deterministic Selection no option good
+\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma\rangle } &\;\; 
+% Repeateed Non-deterministic Selection no options good
+\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma \rangle } 
+\end{align*}
+
+\begin{align*}
+% Repeated Deterministic Selection
+\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } \\
+% Repeated Nondeterministic Selection
+\\ \frac{\sigma \models \textrm{b}_i} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
+\end{align*}
+\section{PRS}
+
+The production rule set is the lowest non-circuit level.  It represents the logical operations that happen in circuits. 
+
+\subsection{Grammar}
+
+The production rules are represented as a set, $\Xi$, consisting of boolean guards, $G_{x\uparrow}$ and $G_{x\downarrow}$ for each variable $x$ in the program.  These rules take the form:
+
+\begin{align*}
+\mathrm{b} & ::= a \; | \; \mathit{l} \; | \; \mathrm{b} _1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; ( \mathrm{b} ) \\
+G_{x\uparrow} &::= \mathrm{b} \mapsto x\uparrow  \\
+G_{x\downarrow} &::= \mathrm{b} \mapsto x\downarrow 
+\end{align*}
+
+N.B. The choice for $\Xi$ is arbitrary and not based on any previous literature.  If there is actually a symbol that's used for the PR Set somewhere else, we should use that.
+
+\subsection{Semantics}
+
+\begin{align*}
+% Rule firing that makes a variable true
+\frac{G_{x\uparrow} \in \Xi  \;\;\;\;  \sigma \models G_{x\uparrow} }{\langle \Xi, \sigma \rangle \rightarrow  \langle \Xi , \sigma[\top/x]\rangle} &\;\; 
+% Rule firing that makes a variable false
+\frac{G_{x\downarrow} \in \Xi  \;\;\;\;  \sigma \models G_{x\downarrow} }{\langle \Xi, \sigma \rangle \rightarrow \langle \Xi , \sigma[\perp/x]\rangle}
+\end{align*}
+
+\subsection{Properties}
+
+A few additional properties must be obeyed.  First, the rule of non-interference, which states that it can never be the case that both the pull-up ($G_{x\uparrow}$) and pull-down $G_{x\downarrow}$ are active at the same time.  This needs to be true for implementability -- both guards being true corresponds to a transistor short-circuit.
+
+Additionally, there is the rule of stability, which states that $G_{x\uparrow}$ can only change from true to false in states where $x$ is true, and $G_{x\downarrow}$ can only change from false to true in states where $x$ is false.
+
+\section{Na\"{i}ve Synthesis} 
+
+The synthesis process from CHP$\rightarrow$HSE$\rightarrow$PRS is an interesting problem.  A na\"{i}ve solution to it is presented below.
+
+The five steps that we will follow in synthesis are:
+
+\begin{enumerate}
+\item CHP Generation
+\item Handshaking Expansion
+\item Ambiguous States Identification
+\item State Variable Insertion
+\item Production Rule Synthesis
+\end{enumerate}
+
+\subsection{CHP Generation}
+
+For this example, we are going to be using a simple one-place dataless buffer:
+
+\begin{hse}
+*[L?;R!]
+\end{hse}
+
+This reads in a dataless value from L, and sends one out on R.  It is not particularly useful, but it will serve for this example.  A more complicated CHP program might be broken-up at this stage into several parallel programs, using the techniques of projection or process decomposition. 
+
+\subsection{Handshaking Expansion}
+
+We will be using a four-phase handshake on both of the channels.  Using this, the above expands to
+
+\begin{hse}
+*[lo+; [li]; lo-; [~li]; [ri]; ro+; [~ri]; ro-]
+\end{hse}
+
+\subsection{Ambiguous State Identification}
+
+To identify ambiguous states, we will first annotate the handshaking expansion with the states that it can be in at any point.  Each point in the program will be annotated with a vector representing $(l_o, l_i, r_o, r_i)$ We will be using 'X' to represent the times where we don't know if a value is true or false.
+
+\begin{hse}
+*[^{\color{blue}(000X)} lo+^{\color{red}(1X0X)}; [li]^{\color{red}(110X)}; lo-^{(010X)}; [~li]^{\color{blue}(000X)}; [ri]^{\color{blue}(0001)}; ro+^{\color{green}(001X)}; [~ri]^{\color{green}(0010)}; ro-^{\color{blue}(000X)}]
+\end{hse}
+
+Each set of ambiguous states has been colored above.  The red and green sets do not matter, as they are immediately before and after a wait, where we expect to see an ambiguity due to the X.  However, the blue states are interesting since they're distributed throughout the program, and we would like different things to happen at each of them. 
+
+
+\subsection{State Variable Insertion}
+
+To eliminate ambiguous states in the above handshaking expansion, we can insert a state variable, $s$.  To demonstrate the removal of ambiguity, the vector will be updated, as $(l_o, l_i, r_o, r_i, s)$.
+
+\begin{hse}
+*[^{\color{blue}(000X0)} lo+^{\color{red}(1X0X0)}; [li]^{\color{red}(110X0)}; s+^{(110X1)}; lo-^{(010X1)}; [~li]^{(000X1)}; 
+        [ri]^{(00011)}; ro+^{\color{green}(001X1)}; [~ri]^{\color{green}(00101)}; s-^{(00100)}; ro-^{\color{blue}(000X0)}]
+\end{hse}
+
+There are still ambiguous states after we have added in the state variables, however, all of them are either essentially the same state (such as in the case of the blue ambiguity) or do not matter (as in the case of the red and green ambiguity).
+
+\subsection{Production Rule Synthesis}
+
+There are two systematic methods for production rule generation, the first is to guard each and every action with the entirety of the (non-ambiguous) state at the moment it would like to fire, and then reducing the number of guards, and the second is to build up the guards by successively adding to them.  Below we present the first method:
+
+\begin{enumerate}
+
+\item Initial Set
+
+\begin{prs2}
+~lo & ~li & ~ro & ~s -> lo+
+lo & li & ~ro & s-> lo-
+
+~lo & ~li & ~ro & ri & s -> ro+
+~lo & ~li & ro & ~ri & s -> ro-
+
+lo & li & ~ro & ~s -> s+
+~lo & ~li & ro & ~ri & s -> s-
+\end{prs2}
+
+\item First Reduction
+
+Every rule in the first set was "self-invalidating", meaning that the output of the rule appeared as part of the guard.  As this is not possible to implement, this is removed as the first transformation.  Doing this changes the states the rules can fire in subtlety -- each of them now can also fire in the states where their result has occurred.  This is OK.
+
+\begin{prs2}
+~li & ~ro & ~s -> lo+
+li & ~ro & s-> lo-
+
+~lo & ~li & ri & s -> ro+
+~lo & ~li & ~ri & s -> ro-
+
+lo & li & ~ro -> s+
+~lo & ~li & ro & ~ri  -> s-
+\end{prs2}
+
+\item A Few More
+
+After a few more reductions, we get the set below.  None of these rules can fire except in the states where they should, or in the states where they already hold.
+
+\begin{prs2}
+~ro & ~s -> lo+
+li & s-> lo-
+
+~li & ri & s -> ro+
+~lo & s -> ro-
+
+li -> s+
+~ri  -> s-
+\end{prs2}
+
+\item Further Transformations
+
+As this production rule set exists, it is not CMOS-implementable.  In order to be CMOS-implementable, each production rule of the form $G_{x\uparrow}$ must only use the inverted sense of variables in its guards, and each of the form $G_{x\downarrow}$ must use the non-inverted sense.  Making this transformation may involve the insertion of additional variables, and is known as bubble reshuffling. 
+
+\end{enumerate}
+
+\subsection{Discussion}
+
+The method above works for simple processes, however, it expands quickly when applied to large processes.  It does not address the technique of handshake reshuffling, where the waits in the expanded handshakes are re-ordered to remove ambiguous states.  This process is one where great care needs to be taken, as it can eliminate possible actions, and constrains other processes to needing compatible reshuffling.
+
+\section{Handshaking Rehsuffling}
+
+The na\"{i}ve synthesis method above will work, but it will create very inefficient implementations in many cases.  One such case is presented below.
+
+% Split example
+
+A "split" is a process that takes in a control signal and a data value, and then based on that control signal, it sends the data out to one of two places.
+
+\begin{hse}
+*[C?c, B?x;
+         [ c -> E!x
+         []~c -> F!x
+       ]]
+\end{hse}
+
+The full na\"{i}ve handshake expansion is below.  In this, channel communication has been simply replaced with the four-phase representation of that channel communication.  For space reasons, this has not been annotated with the state, however, it is easy to see that there will be many ambiguous states.
+
+\begin{hse}
+*[(([C.t -> c+ [] C.f -> c-]; C.e-; [~C.t & ~C.f]; C.e+ ), 
+   ([B.t -> x+ [] B.f -> x-]; B.e-; [~B.t & ~B.f]; B.e+ ));
+         [  c -> [E.e]; [ x -> E!\top [] ~x -> E!\perp]; [~E.e]; (E.t-, E.f-)
+         [] ~c -> [F.e]; [ x -> F!\top [] ~x -> F!\perp]; [~F.e]; (F.t-, F.f-)
+       ]]
+\end{hse}
+
+If we re-order the handshaking expansion, we can create a system that requires absolutely zero additional state variables to operate, and we have removed the need for internal storage variables.  However, after re-ordering, there are actions that are not possible that were originally possible.  
+
+The reshuffling below is what is known as a "Pre-Charge Half-Buffered" reshuffling. Pre-charge, as the arrangement of transitions in the resulting production rule set allow for pre-charge of internal nodes. And half-buffered because it no longer will act as a full buffer stage for the data: it is no longer possible to have different values waiting on the input and being set on the output.  Two of them in series, or with half-buffer buffer stages on the output allows you to regain all of the behaviors of the full-buffered version, though this typically is not necessary.
+
+\begin{hse}
+*[[ E.e & C.t & B.t -> E.t+
+  [] E.e & C.t & B.f -> E.f+
+  [] F.e & C.f & B.t -> F.t+
+  [] F.e & C.f & B.f -> F.f+
+  ]; C.e-, B.e-;
+  [ ~E.e | (~E.t & ~E.f) -> E.t-, E.f-],
+  [ ~F.e | (~F.t & ~F.f) -> F.t-, F.f-];
+  [~C.t & C.f & ~B.t & B.f];
+  C.e+, B.e+
+]
+\end{hse}
+
+\section{Project Goals}
+
+\begin{enumerate}
+
+\item Formally define the semantics for CHP, HSE, and PRS
+
+\item Discuss Handshaking Expansions in a good way 
+
+\item Discuss Synthesis from HSE to PRS in a better way
+
+\item Build a system to prove CHP $\rightarrow$ CHP transformations
+
+\item Build a system to prove HSE $\rightarrow$ HSE transformations
+
+\item Build a system to prove equivalences for CHP $\rightarrow$ HSE transforms post-reshufflings
+
+\end{enumerate}
+\end{document}
