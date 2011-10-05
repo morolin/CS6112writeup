@@ -3,7 +3,6 @@
 
 \usepackage{times}
 \usepackage{epsf}
-\usepackage{prs}
 \usepackage{graphicx}
 \usepackage{fullpage}
 \usepackage{amsmath}
@@ -31,7 +30,7 @@ CHP is the highest-level language.  Seen here is CHP with boolean support only.
 
 \begin{align*}
 \ell & ::= \top \; | \perp \\
-\mathrm{b} & ::= a \; | \; \ell \; | \; \bar{A} \; | \; A\# \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b}) \\
+\mathrm{b} & ::= a \; | \; \ell \; | \; \bar{A} \; | \; \widehat{A} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b}) \\
 \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | \; (P)\\
 \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
 \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
@@ -44,7 +43,7 @@ Above, we are using $a ... z$ to range over variables, and $A ... Z$ to range ov
 All of the following rules work up to structural congruence ($\equiv$), which is defined by $\alpha$ conversion and the following rules:
 
 \[
-P || \mathtt{skip} \equiv P \;\;\;\;\;  P || Q \equiv Q || P  \;\;\;\;\;  \mathtt{skip}; P \equiv P \\
+P || \mathtt{skip} \equiv P \;\;\;\;\;  P || Q \equiv Q || P %  \;\;\;\;\;  \mathtt{skip}; P \equiv P \\
 \]
 \[
 P || (Q || R) \equiv (P || Q) || R 
@@ -55,9 +54,11 @@ A \bullet B \equiv B \bullet A \;\;\;\;\; ( A \bullet B ) \bullet C \equiv A \bu
 
 Additionally, the following rules are augmented by an environment, $\sigma$, which is a mapping from variables to boolean values, $\sigma : \textrm{Var} \rightarrow \mathcal{B}$ 
 
-Boolean simplification $\overset{b}{\rightarrow}$ works as typical on AND and OR, though it is also extended with channel probes ($\bar{A}$), which are true  ($\top$) when a channel wishes to communicate on channel A, and false ($\perp$) otherwise and value probes ($A\#$), which are defined below \textbf{XXX: We should probably define an actual boolean simplification set which includes both probes and value probes.  I couldn't think of a good way to express them easily, as both of these need a context.}.
+Boolean simplification $\overset{b}{\rightarrow}$ works as typical on AND and OR, though it is also extended with channel probes ($\bar{A}$), which are true  ($\top$) when a channel wishes to communicate on channel A, and false ($\perp$) otherwise and value probes ($\widehat{A}$), which are defined below \textbf{XXX: We should probably define an actual boolean simplification set which includes both probes and value probes.  I couldn't think of a good way to express them easily, as both of these need a context.}.
 
 \begin{align*}
+% Remove a skip statement
+\frac{}{\langle \mathtt{skip}; P, \sigma \rangle \rightarrow \langle P, \sigma \rangle } & \\ \\
 % Simplify boolean under assignment
 \frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle a := b, \sigma\rangle \overset{b}{\rightarrow}  \langle a := b', \sigma \rangle} &\;\; 
 % Assignment
@@ -122,6 +123,8 @@ One level lower is the handshaking expansions, which remove operations on channe
 \subsection{Small-Step Semantics}
 
 \begin{align*}
+% Remove a skip statement
+\frac{}{\langle \mathtt{skip}; P, \sigma \rangle \rightarrow \langle P, \sigma \rangle } & \\ \\
 % Assignment
 \frac{}{\langle a \uparrow , \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\top/a]\rangle } &\;\; 
 \frac{}{\langle a \downarrow , \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\perp/a]\rangle }
@@ -197,9 +200,9 @@ The five steps that we will follow in synthesis are:
 
 For this example, we are going to be using a simple one-place dataless buffer:
 
-\begin{hse}
+\begin{align*}
 *[L?;R!]
-\end{hse}
+\end{align*}
 
 This reads in a dataless value from L, and sends one out on R.  It is not particularly useful, but it will serve for this example.  A more complicated CHP program might be broken-up at this stage into several parallel programs, using the techniques of projection or process decomposition. 
 
@@ -207,17 +210,26 @@ This reads in a dataless value from L, and sends one out on R.  It is not partic
 
 We will be using a four-phase handshake on both of the channels.  Using this, the above expands to
 
-\begin{hse}
-*[lo+; [li]; lo-; [~li]; [ri]; ro+; [~ri]; ro-]
-\end{hse}
+%\begin{hse}
+%*[lo+; [li]; lo-; [~li]; [ri]; ro+; [~ri]; ro-]
+%\end{hse}
+
+\begin{align*} 
+*\textbf{[}l_o \! \uparrow; \; \textbf{[}l_i\textbf{]}; \; l_o\!\downarrow; \; \textbf{[}~l_i\textbf{]}; \; \textbf{[}r_i\textbf{]}; \; r_o \! \uparrow; \; \textbf{[}~r_i\textbf{]}; \; r_o \! \downarrow\textbf{]}
+\end{align*}
+
 
 \subsection{Ambiguous State Identification}
 
 To identify ambiguous states, we will first annotate the handshaking expansion with the states that it can be in at any point.  Each point in the program will be annotated with a vector representing $(l_o, l_i, r_o, r_i)$ We will be using 'X' to represent the times where we don't know if a value is true or false.
 
-\begin{hse}
-*[^{\color{blue}(000X)} lo+^{\color{red}(1X0X)}; [li]^{\color{red}(110X)}; lo-^{(010X)}; [~li]^{\color{blue}(000X)}; [ri]^{\color{blue}(0001)}; ro+^{\color{green}(001X)}; [~ri]^{\color{green}(0010)}; ro-^{\color{blue}(000X)}]
-\end{hse}
+%\begin{hse}
+%*[^{\color{blue}(000X)} lo+^{\color{red}(1X0X)}; [li]^{\color{red}(110X)}; lo-^{(010X)}; [~li]^{\color{blue}(000X)}; [ri]^{\color{blue}(0001)}; ro+^{\color{green}(001X)}; [~ri]^{\color{green}(0010)}; ro-^{\color{blue}(000X)}]
+%\end{hse}
+
+\begin{align*} 
+*\textbf{[} ^{\color{blue}(000X)} \;  l_o \! \uparrow^{\color{red}(1X0X)}; \; \textbf{[}l_i\textbf{]}^{\color{red}(110X)}; \; l_o\!\downarrow^{(010X)}; \; \textbf{[}~l_i\textbf{]}^{\color{blue}(000X)}; \; \textbf{[}r_i\textbf{]}^{\color{blue}(0001)}; \; r_o \! \uparrow^{\color{green}(001X)}; \; \textbf{[}~r_i\textbf{]}^{\color{green}(0010)}; \; r_o \! \downarrow^{\color{blue}(000X)}\textbf{]}
+\end{align*}
 
 Each set of ambiguous states has been colored above.  The red and green sets do not matter, as they are immediately before and after a wait, where we expect to see an ambiguity due to the X.  However, the blue states are interesting since they're distributed throughout the program, and we would like different things to happen at each of them. 
 
@@ -226,10 +238,15 @@ Each set of ambiguous states has been colored above.  The red and green sets do 
 
 To eliminate ambiguous states in the above handshaking expansion, we can insert a state variable, $s$.  To demonstrate the removal of ambiguity, the vector will be updated, as $(l_o, l_i, r_o, r_i, s)$.
 
-\begin{hse}
-*[^{\color{blue}(000X0)} lo+^{\color{red}(1X0X0)}; [li]^{\color{red}(110X0)}; s+^{(110X1)}; lo-^{(010X1)}; [~li]^{(000X1)}; 
-        [ri]^{(00011)}; ro+^{\color{green}(001X1)}; [~ri]^{\color{green}(00101)}; s-^{(00100)}; ro-^{\color{blue}(000X0)}]
-\end{hse}
+%\begin{hse}
+%*[^{\color{blue}(000X0)} lo+^{\color{red}(1X0X0)}; [li]^{\color{red}(110X0)}; s+^{(110X1)}; lo-^{(010X1)}; [~li]^{(000X1)}; 
+%        [ri]^{(00011)}; ro+^{\color{green}(001X1)}; [~ri]^{\color{green}(00101)}; s-^{(00100)}; ro-^{\color{blue}(000X0)}]
+%\end{hse}
+
+\begin{align*} 
+*\textbf{[} ^{\color{blue}(000X0)} \;  l_o \! \uparrow^{\color{red}(1X0X0)}; \; \textbf{[}l_i\textbf{]}^{\color{red}(110X0)}; \; s\!\uparrow^{(110X1)}; \; l_o\!\downarrow^{(010X1)}; \; \textbf{[}~l_i\textbf{]}^{(000X1)}; \\
+\textbf{[}r_i\textbf{]}^{(00011)}; \; r_o \! \uparrow^{\color{green}(001X1)}; \; \textbf{[}~r_i\textbf{]}^{\color{green}(00101)}; \; s\!\downarrow^{(00100)}; \; r_o \! \downarrow^{\color{blue}(000X0)}\textbf{]}
+\end{align*}
 
 There are still ambiguous states after we have added in the state variables, however, all of them are either essentially the same state (such as in the case of the blue ambiguity) or do not matter (as in the case of the red and green ambiguity).
 
@@ -241,46 +258,68 @@ There are two systematic methods for production rule generation, the first is to
 
 \item Initial Set
 
-\begin{prs2}
-~lo & ~li & ~ro & ~s -> lo+
-lo & li & ~ro & s-> lo-
+%\begin{prs2}
+%~lo & ~li & ~ro & ~s -> lo+
+%lo & li & ~ro & s-> lo-
 
-~lo & ~li & ~ro & ri & s -> ro+
-~lo & ~li & ro & ~ri & s -> ro-
+%~lo & ~li & ~ro & ri & s -> ro+
+%~lo & ~li & ro & ~ri & s -> ro-
 
-lo & li & ~ro & ~s -> s+
-~lo & ~li & ro & ~ri & s -> s-
-\end{prs2}
+%lo & li & ~ro & ~s -> s+
+%~lo & ~li & ro & ~ri & s -> s-
+%\end{prs2}
+
+\begin{align*}
+\lnot l_o \wedge \lnot l_i \wedge \lnot r_o \wedge \lnot s & \mapsto l_o \uparrow & \lnot l_o \wedge \lnot l_i \wedge \lnot r_o \wedge r_i \wedge s  & \mapsto r_o \uparrow \\
+l_o \wedge l_i \wedge \lnot r_o \wedge s & \mapsto l_o \downarrow  & \lnot l_o \wedge \lnot l_i \wedge r_o \wedge \lnot r_i \wedge s & \mapsto r_o\downarrow \\ \\
+l_o \wedge l_i \wedge \lnot r_o \wedge \lnot s & \mapsto s\uparrow & & \\
+\lnot l_o \wedge \lnot l_i \wedge r_o \wedge \lnot r_i \wedge s & \mapsto s\downarrow & & 
+\end{align*}
 
 \item First Reduction
 
 Every rule in the first set was "self-invalidating", meaning that the output of the rule appeared as part of the guard.  As this is not possible to implement, this is removed as the first transformation.  Doing this changes the states the rules can fire in subtlety -- each of them now can also fire in the states where their result has occurred.  This is OK.
 
-\begin{prs2}
-~li & ~ro & ~s -> lo+
-li & ~ro & s-> lo-
+%\begin{prs2}
+%~li & ~ro & ~s -> lo+
+%li & ~ro & s-> lo-
 
-~lo & ~li & ri & s -> ro+
-~lo & ~li & ~ri & s -> ro-
+%~lo & ~li & ri & s -> ro+
+%~lo & ~li & ~ri & s -> ro-
 
-lo & li & ~ro -> s+
-~lo & ~li & ro & ~ri  -> s-
-\end{prs2}
+%lo & li & ~ro -> s+
+%~lo & ~li & ro & ~ri  -> s-
+%\end{prs2}
+
+\begin{align*}
+\lnot l_i \wedge \lnot r_o \wedge \lnot s & \mapsto l_o \uparrow & \lnot l_o \wedge \lnot l_i \wedge r_i \wedge s  & \mapsto r_o \uparrow \\
+l_i \wedge \lnot r_o \wedge s & \mapsto l_o \downarrow  & \lnot l_o \wedge \lnot l_i \wedge \lnot r_i \wedge s & \mapsto r_o\downarrow \\ \\
+l_o \wedge l_i \wedge \lnot r_o& \mapsto s\uparrow & & \\
+\lnot l_o \wedge \lnot l_i \wedge r_o \wedge \not r_i & \mapsto s\downarrow & & 
+\end{align*}
 
 \item A Few More
 
 After a few more reductions, we get the set below.  None of these rules can fire except in the states where they should, or in the states where they already hold.
 
-\begin{prs2}
-~ro & ~s -> lo+
-li & s-> lo-
+%\begin{prs2}
+%~ro & ~s -> lo+
+%li & s-> lo-
 
-~li & ri & s -> ro+
-~lo & s -> ro-
+%~li & ri & s -> ro+
+%~lo & s -> ro-
 
-li -> s+
-~ri  -> s-
-\end{prs2}
+%li -> s+
+%~ri  -> s-
+%\end{prs2}
+
+\begin{align*}
+\lnot r_o \wedge \lnot s & \mapsto l_o \uparrow & \lnot l_i \wedge r_i \wedge s  & \mapsto r_o \uparrow \\
+l_i \wedge \wedge s & \mapsto l_o \downarrow  & \lnot l_o \wedge s & \mapsto r_o\downarrow \\ \\
+l_i & \mapsto s\uparrow & & \\
+\lnot r_i & \mapsto s\downarrow & & 
+\end{align*}
+
 
 \item Further Transformations
 
@@ -292,47 +331,47 @@ As this production rule set exists, it is not CMOS-implementable.  In order to b
 
 The method above works for simple processes, however, it expands quickly when applied to large processes.  It does not address the technique of handshake reshuffling, where the waits in the expanded handshakes are re-ordered to remove ambiguous states.  This process is one where great care needs to be taken, as it can eliminate possible actions, and constrains other processes to needing compatible reshuffling.
 
-\section{Handshaking Rehsuffling}
+%\section{Handshaking Rehsuffling}
 
-The na\"{i}ve synthesis method above will work, but it will create very inefficient implementations in many cases.  One such case is presented below.
+%The na\"{i}ve synthesis method above will work, but it will create very inefficient implementations in many cases.  One such case is presented below.
 
 % Split example
 
-A "split" is a process that takes in a control signal and a data value, and then based on that control signal, it sends the data out to one of two places.
+%A "split" is a process that takes in a control signal and a data value, and then based on that control signal, it sends the data out to one of two places.
 
-\begin{hse}
-*[C?c, B?x;
-         [ c -> E!x
-         []~c -> F!x
-       ]]
-\end{hse}
+%\begin{hse}
+%*[C?c, B?x;
+%         [ c -> E!x
+%         []~c -> F!x
+%       ]]
+%\end{hse}
 
-The full na\"{i}ve handshake expansion is below.  In this, channel communication has been simply replaced with the four-phase representation of that channel communication.  For space reasons, this has not been annotated with the state, however, it is easy to see that there will be many ambiguous states.
+%The full na\"{i}ve handshake expansion is below.  In this, channel communication has been simply replaced with the four-phase representation of that channel communication.  For space reasons, this has not been annotated with the state, however, it is easy to see that there will be many ambiguous states.
 
-\begin{hse}
-*[(([C.t -> c+ [] C.f -> c-]; C.e-; [~C.t & ~C.f]; C.e+ ), 
-   ([B.t -> x+ [] B.f -> x-]; B.e-; [~B.t & ~B.f]; B.e+ ));
-         [  c -> [E.e]; [ x -> E!\top [] ~x -> E!\perp]; [~E.e]; (E.t-, E.f-)
-         [] ~c -> [F.e]; [ x -> F!\top [] ~x -> F!\perp]; [~F.e]; (F.t-, F.f-)
-       ]]
-\end{hse}
+%\begin{hse}
+%*[(([C.t -> c+ [] C.f -> c-]; C.e-; [~C.t & ~C.f]; C.e+ ), 
+ %  ([B.t -> x+ [] B.f -> x-]; B.e-; [~B.t & ~B.f]; B.e+ ));
+%         [  c -> [E.e]; [ x -> E!\top [] ~x -> E!\perp]; [~E.e]; (E.t-, E.f-)
+%         [] ~c -> [F.e]; [ x -> F!\top [] ~x -> F!\perp]; [~F.e]; (F.t-, F.f-)
+%       ]]
+%\end{hse}
 
-If we re-order the handshaking expansion, we can create a system that requires absolutely zero additional state variables to operate, and we have removed the need for internal storage variables.  However, after re-ordering, there are actions that are not possible that were originally possible.  
+%If we re-order the handshaking expansion, we can create a system that requires absolutely zero additional state variables to operate, and we have removed the need for internal storage variables.  However, after re-ordering, there are actions that are not possible that were originally possible.  
 
-The reshuffling below is what is known as a "Pre-Charge Half-Buffered" reshuffling. Pre-charge, as the arrangement of transitions in the resulting production rule set allow for pre-charge of internal nodes. And half-buffered because it no longer will act as a full buffer stage for the data: it is no longer possible to have different values waiting on the input and being set on the output.  Two of them in series, or with half-buffer buffer stages on the output allows you to regain all of the behaviors of the full-buffered version, though this typically is not necessary.
+%The reshuffling below is what is known as a "Pre-Charge Half-Buffered" reshuffling. Pre-charge, as the arrangement of transitions in the resulting production rule set allow for pre-charge of internal nodes. And half-buffered because it no longer will act as a full buffer stage for the data: it is no longer possible to have different values waiting on the input and being set on the output.  Two of them in series, or with half-buffer buffer stages on the output allows you to regain all of the behaviors of the full-buffered version, though this typically is not necessary.
 
-\begin{hse}
-*[[ E.e & C.t & B.t -> E.t+
-  [] E.e & C.t & B.f -> E.f+
-  [] F.e & C.f & B.t -> F.t+
-  [] F.e & C.f & B.f -> F.f+
-  ]; C.e-, B.e-;
-  [ ~E.e | (~E.t & ~E.f) -> E.t-, E.f-],
-  [ ~F.e | (~F.t & ~F.f) -> F.t-, F.f-];
-  [~C.t & C.f & ~B.t & B.f];
-  C.e+, B.e+
-]
-\end{hse}
+%\begin{hse}
+%*[[ E.e & C.t & B.t -> E.t+
+%  [] E.e & C.t & B.f -> E.f+
+%  [] F.e & C.f & B.t -> F.t+
+%  [] F.e & C.f & B.f -> F.f+
+%  ]; C.e-, B.e-;
+%  [ ~E.e | (~E.t & ~E.f) -> E.t-, E.f-],
+%  [ ~F.e | (~F.t & ~F.f) -> F.t-, F.f-];
+%  [~C.t & C.f & ~B.t & B.f];
+%  C.e+, B.e+
+%]
+%\end{hse}
 
 \section{Project Goals}
 
