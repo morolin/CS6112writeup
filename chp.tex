@@ -31,7 +31,7 @@ CHP is the highest-level language.  Seen here is CHP with boolean support only.
 \begin{align*}
 \ell & ::= \top \; | \perp \\
 \mathrm{b} & ::= a \; | \; \ell \; | \; \bar{A} \; | \; \widehat{A} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b}) \\
-\mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | \; (P)\\
+\mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | \; (P) \; | \; \texttt{new } a \; | \; \texttt{NEW } A\\
 \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
 \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
 \end{align*}
