@@ -38,6 +38,14 @@ CHP is the highest-level language.  Seen here is CHP with boolean support only.
 
 Above, we are using $a ... z$ to range over variables, and $A ... Z$ to range over channels.
 
+Additionally, there is some well-accepted syntactic sugar:
+
+$L?$ or $R!$ are dataless channels.  They are equivalent to receiving into a new variable, and sending an arbitrary value, respectively.
+
+$*[S]$ is syntactic sugar for $*[ \top \; \rightarrow \; S]$, which is used for infinite loops. 
+
+$[\textrm{b}]$ is used to mean $[\textrm{b} \; \rightarrow \mathtt{skip}]$, which means that we wait for a boolean expression to be true before continuing.
+
 \subsection{Small-Step Semantics}
 
 All of the following rules work up to structural congruence ($\equiv$), which is defined by $\alpha$ conversion and the following rules:
@@ -119,6 +127,14 @@ One level lower is the handshaking expansions, which remove operations on channe
 \mathrm{P} & ::= a\uparrow \; | \; a\downarrow \; | \; S \; | \; *S \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | ( P )  \\
 \mathrm{S} & ::= [ b_1 \rightarrow P_1  \talloblong \; ... \; \talloblong b_n \rightarrow P_n ] \; | \; [ b_1 \rightarrow P_1 | \; ... \; | b_n \rightarrow P_n ]
 \end{align*}
+
+Above, we are using $a ... z$ to range over variables, and $A ... Z$ to range over channels.
+
+Additionally, there is some well-accepted syntactic sugar:
+
+$*[S]$ is syntactic sugar for $*[ \top \; \rightarrow \; S]$, which is used for infinite loops. 
+
+$[\textrm{b}]$ is used to mean $[\textrm{b} \; \rightarrow \mathtt{skip}]$, which means that we wait for a boolean expression to be true before continuing.
 
 \subsection{Small-Step Semantics}
 
@@ -331,6 +347,27 @@ As this production rule set exists, it is not CMOS-implementable.  In order to b
 
 The method above works for simple processes, however, it expands quickly when applied to large processes.  It does not address the technique of handshake reshuffling, where the waits in the expanded handshakes are re-ordered to remove ambiguous states.  This process is one where great care needs to be taken, as it can eliminate possible actions, and constrains other processes to needing compatible reshuffling.
 
+\section{Handshaking Reshuffling}
+
+The na\"{i}ve synthesis method presented above will create handshaking expansions without ambiguous states, however, in many cases it will result in very inefficient implementations with a very large number of state variables. 
+
+To take the single-place buffer from above, we originally had:
+
+\begin{align*} 
+*\textbf{[}l_o \! \uparrow; \; \textbf{[}l_i\textbf{]}; \; l_o\!\downarrow; \; \textbf{[}~l_i\textbf{]}; \; \textbf{[}r_i\textbf{]}; \; r_o \! \uparrow; \; \textbf{[}~r_i\textbf{]}; \; r_o \! \downarrow\textbf{]}
+\end{align*}
+
+Which has ambiguous states in it. However, it is possible to reorder the sequence of events to not have any significant ambiguities while at the same time still preserving many of the possible sets of behaviors.
+
+One such reshuffling is known as the "Weak Charge Half Buffered" or WCHB reshuffling, and it looks like:
+
+% *[[Re & Ld]; Rd+; Le-; [~Re & ~Ld]; Rd-, Le+]
+
+\begin{align*}
+*\textbf{[}l_o \! \uparrow; \; \textbf{[}  r_i \wedge l_i  \textbf{]} \;; r_o\!\uparrow;  \;l_o \! \downarrow; \; \textbf{[}  \lnot r_i \wedge \lnot l_i  \textbf{]};  \; r_o\!\downarrow  \textbf{]} 
+\end{align*} 
+
+
 %\section{Handshaking Rehsuffling}
 
 %The na\"{i}ve synthesis method above will work, but it will create very inefficient implementations in many cases.  One such case is presented below.
@@ -372,6 +409,82 @@ The method above works for simple processes, however, it expands quickly when ap
 %  C.e+, B.e+
 %]
 %\end{hse}
+
+\section{CHP to CHP Transformations}
+
+To reduce the implementation complexity, and to increase the amount of parallelism and pipelining that is allowed, it is often advantageous to take a single CHP program and break it down into several smaller processes.
+
+\subsection{Process Decomposition}
+
+Process decomposition is a method for taking arbitrary sections of code and moving them into a separate process.  It does this by replacing the code to remove with a single dataless channel action, and then using that channel action to synchronize the behavior.
+
+For example, if the original CHP is $(....; S;...)$, the decomposed CHP might be: 
+
+\begin{align*}
+& \mathtt{NEW } \; C; \\
+& ...; C!; ... \\
+& || *[\bar{C} \rightarrow S; C?]
+\end{align*}
+
+This can be applied to more complicated processes, such as: (note that the following is from Prof. Manohar's class notes, and is using CHP with the extension onto numbers)
+
+\begin{align*}
+&*[ x := 0; i := 0; \\
+&    *[ i < 10\; \rightarrow\; I?t; x := x + t; i := i + 1]; \\
+&     O!x\\
+& ]
+\end{align*}
+
+This is a process that reads in 10 items from channel I, and then sends out the summation of those on channel O.  It might be helpful to move the summation on x out into a different channel.
+
+\begin{align*}
+&*[ x := 0; i := 0; \\
+& \;\;\;*[ i < 10\; \rightarrow\; I?t; (A! || B!t) i := i + 1];\\
+& \;\;\;\;\;\;O!x\\
+& ]\\
+&|| *[ \bar{A} \; \rightarrow\; B?v; x := x+v; A?]
+\end{align*}
+
+A natural extension to this is to move all of the actions on $x$ into the parallel process, as sharing variables becomes a headache once we get into implementation.
+
+\begin{align*}
+&*[ C!; \;  i := 0;\\
+& \;\;\;*[ i < 10\; \rightarrow\; I?t; (A! || B!t) i := i + 1];\\
+& \;\;\;\;\;\;D!\\
+& ]\\
+&|| *[ \bar{A} \; \rightarrow\; B?v; x := x+v; A?\\
+&\;\;\;\;\;\;[] \bar{C} \; \rightarrow\; x := 0; B?\\
+& \;\;\;\;\;\;[] \bar{D}\; \rightarrow\; O!x; D? \\
+&  ]
+\end{align*}
+
+As the value from channel I is basically passing through B in all situations, we can replace it.  This is only possible because the dataless channel $A$ is ensuring that the value only gets read at the correct time.
+
+\begin{align*}
+&*[ C!; \;  i := 0;\\
+& \;\;\;*[ i < 10\; \rightarrow\; A!; i := i + 1];\\
+& \;\;\;\;\;\;D!\\
+& ]\\
+&|| *[ \bar{A} \; \rightarrow\; I?v; x := x+v; A?\\
+&\;\;\;\;\;\;[] \bar{C} \; \rightarrow\; x := 0; B?\\
+& \;\;\;\;\;\;[] \bar{D}\; \rightarrow\; O!x; D? \\
+&  ]
+\end{align*}
+
+And lastly, as the selection statement will ensure the exclusivity of execution of all of its branches, and in this system, $x$ is not shared, we can do some reordering of the actions in the second process, to allow the first process to proceed more rapidly.
+
+\begin{align*}
+&*[ C!; \; i := 0;\\
+& \;\;\;*[ i < 10\; \rightarrow\; A!; i := i + 1];\\
+& \;\;\;\;\;\;D!\\
+& ]\\
+&|| *[ \bar{A} \; \rightarrow\; A?; I?v; x := x+v\\
+&\;\;\;\;\;\;[] \bar{C} \; \rightarrow\; B?; x := 0\\
+& \;\;\;\;\;\;[] \bar{D}\; \rightarrow\; O!x; D? \\
+&  ]
+\end{align*}
+
+And now, because of this decomposition, the additions on $x$ and $i$ can happen in parallel, the processes will be simpler to implement in hardware, and will perform better.
 
 \section{Project Goals}
 
