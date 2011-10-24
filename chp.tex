@@ -49,12 +49,14 @@ $*[S]$ is syntactic sugar for $*[ \top \; \rightarrow \; S]$, which is used for 
 
 $[\textrm{b}]$ is used to mean $[\textrm{b} \; \rightarrow \mathtt{skip}]$, which means that we wait for a boolean expression to be true before continuing.
 
-\subsection{Environment Variables and Notation}
+In addition, nothing that is underlined is valid in the definition of a program; these are all intermediate expressions that can only arise during program execution.
 
+\subsection{Environment Variables and Notation}
+Here we use $\xi$ as a metasyntactic variable for the elements of $\sigma$.
 \begin{align*}
-    \text{Set Definitions} & ::= \mathbb{B} \; | \; \mathbb{V} \; | \; \mathbb{C} \; | \; \Sigma \\
+    \text{Set Definitions} & ::= \mathbb{B} \; | \; \mathbb{V} \; | \; \mathbb{C} \; | \; \Sigma \; | \; \Omega \\
     \text{Environment Variables} & ::= \sigma, \varsigma, \varsigma_r, \varsigma_w, \rho, \rho_r, \rho_w, \omega \\
-    \text{Environment Variable Ops} & ::= \oslash_\xi, \odot, \oplus, \oplus_a, \ominus, \triangleleft, \diamond, \rightarrow, +, -
+    \text{Environment Variable Ops} & ::= \oslash_\xi, \odot, \oplus, \oplus_a, \ominus, \triangleleft, \diamond, \triangleright, +, -
 \end{align*}
 
 The set definitions are:
@@ -63,6 +65,7 @@ The set definitions are:
     \item $\mathbb{V} = \{a; \ldots; z\}$ is the set of variables.
     \item $\mathbb{C} = \{A; \ldots; Z\}$ is the set of channels.
     \item $\Sigma = \{\sigma\}$ is the set of all environments.
+    \item $\Omega = \{\omega\}$ is the set of all stacks.
 \end{enumerate}
 
 The environment variable definitions are:
@@ -74,7 +77,7 @@ The environment variable definitions are:
     \item $\rho \subseteq \mathbb{C}$ is the set of in-scope channels.
     \item $\rho_r \subseteq \mathbb{C}$ is the multiset of channels currently being read from (is a set if channels are end-to-end).
     \item $\rho_w \subseteq \mathbb{C} \times \mathbb{B}$ is the multimap from channels currently being written to to the booleans being sent on them (is a map if channels are end-to-end).
-    \item $\omega \in \Sigma^*$ is the stack of environments, used for handling scoping.
+    \item $\omega \in (\Sigma + (\Omega \times \Omega))^*$ is the stack of environments/double stacks, used for handling scoping.
 \end{enumerate}
 
 The environment variable operation definitions are:
@@ -91,9 +94,12 @@ The environment variable operation definitions are:
     \item $\rho_r \ominus_A \rho_r'$ is defined to be $\{A' \; | \; A' \in \rho_r \wedge A' \neq A\} \cup \{A \; | \; A \in \rho_r\}$. In other words, this is $\rho_r$ with all instances of $A$ removed and replaced with all instances of $A$ in $\rho_r'$.
     \item $\rho_w \ominus_A \rho_w'$ is defined to be $\{(A', \ell) \; | \; (A', \ell) \in \rho_w \wedge A' \neq A\} \cup \{(A, \ell) \; | \; (A, \ell) \in \rho_w\}$. In other words, this is $\rho_w$ with all pairs containing $A$ removed and replaced with all pairs containing $A$ in $\rho_w'$.
     \item $\omega \triangleleft \sigma$ is $\omega$ with $\sigma$ pushed onto it.
-    \item $\omega \diamond \sigma$ is $\omega$ with its top environment replaced with $\sigma$ (this operation gets `stuck' if $\omega$ happens to be empty).
-    \item $\omega \; \triangleright$ is $\omega$ with its top environment popped off (this operation gets `stuck' if $\omega$ happens to be empty).
-    \item $\omega \triangleright \sigma$ declares $\sigma$ to be the top environment of $\omega$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \triangleleft (\omega', \omega'')$ is $\omega$ with $(\omega', \omega'')$ pushed onto it.
+    \item $\omega \diamond \sigma$ is $\omega$ with its top element replaced with $\sigma$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \diamond (\omega', \omega'')$ is $\omega$ with its top element replaced with $(\omega', \omega'')$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \; \triangleright$ is $\omega$ with its top element popped off (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \triangleright \sigma$ assigns $\sigma$ to be the top element of $\omega$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \triangleright (\omega', \omega'')$ assigns $(\omega', \omega'')$ to be the top element of $\omega$ (this operation gets `stuck' if $\omega$ happens to be empty).
     \item $+, -$ represent adding and removing an element from a multiset or multimap, respectively.
 \end{enumerate}
 
@@ -105,7 +111,8 @@ $\sigma$ is initialized to be $\{\varnothing, \varnothing, \varnothing, \varnoth
 \subsubsection{Boolean Rules}
 $$
     \frac{}{\sigma \models \ell : \ell} \qquad
-    \frac{\sigma \models \mathrm{b} : \ell}{\sigma \models \neg \mathrm{b} : \neg \ell} \qquad
+    \frac{\sigma \models \mathrm{b} : \top}{\sigma \models \neg \mathrm{b} : \bot} \qquad
+    \frac{\sigma \models \mathrm{b} : \bot}{\sigma \models \neg \mathrm{b} : \top} \qquad
     \frac{\sigma \models \mathrm{b} : \top \quad \sigma \models \mathrm{b}' : \top}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \top} \qquad
     \frac{\sigma \models \mathrm{b} : \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \bot} \qquad
     \frac{\sigma \models \mathrm{b}' : \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \bot} $$$$
@@ -121,11 +128,13 @@ $$
 $$
 
 \subsubsection{LTS Rules}
+Here we use $\delta$ as a metasyntactic variable for the labels on transitions.
 $$
     % skip, assign, sequential and parallel composition rules
     \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
     \frac{a \in \sigma[\varsigma_w] \quad \sigma \models \mathrm{b} : \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma \oslash_\varsigma (\sigma[\varsigma] \oplus \{(a, \ell)\}) \rangle} $$$$
     \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+%   \frac{}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P || Q, \sigma \oslash_\omega \sigma[\omega] \triangleleft (\sigma[\omega], \sigma[\omega]) \rangle} \qquad
     \frac{\langle P, \sigma \oslash_{\varsigma_w} \varnothing \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma \rangle} \qquad
     \frac{\langle Q, \sigma \oslash_{\varsigma_w} \varnothing \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma \rangle} $$$$
     % selection rules
@@ -153,7 +162,7 @@ $$
     \frac{\langle \underline{C}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \underline{A?a \bullet C}, \sigma \rangle \xrightarrow{\delta + \{A?a : \ell\}} \langle \mathtt{skip}, \sigma' \oslash_\varsigma (\sigma'[\varsigma] \oplus \{(a, \ell)\}) \oslash_{\rho_r} (\sigma'[\rho_r] - A) \rangle} $$$$
     \frac{\langle \underline{C}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \underline{A!\ell \bullet C}, \sigma \rangle \xrightarrow{\delta + \{A!\ell\}} \langle \mathtt{skip}, \sigma' \oslash_{\rho_w} (\sigma'[\rho_w] - (A, \ell)) \rangle} $$$$
     \frac{\langle P, \sigma \rangle \xrightarrow{\{A!\ell\}} \langle P', \sigma' \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{\{A?a : \ell\}} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma'' \rangle} \qquad
-    \frac{\langle P, \sigma \rangle \xrightarrow{\{A?a\}} \langle P', \sigma' \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{\{A!\ell\}} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma'' \rangle} $$$$
+    \frac{\langle P, \sigma \rangle \xrightarrow{\{A?a : \ell\}} \langle P', \sigma' \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{\{A!\ell\}} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma'' \rangle} $$$$
     \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma'' \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta + A?a : \ell} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' + A!\ell} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma''''' \rangle} $$$$
     \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma'' \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta + A!\ell} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' + A?a : \ell} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma''''' \rangle}
 $$
