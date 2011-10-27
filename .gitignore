@@ -1,3 +1,4 @@
-
-/chp.aux
-/chp.log
+*.aux
+*.log
+*.pdf
+*.sw*
