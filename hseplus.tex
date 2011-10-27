@@ -1,0 +1,218 @@
+\documentclass{article}
+\usepackage{mathpartir}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+
+\title{HSE+}
+\author{Alec Story}
+
+\begin{document}
+
+\newcommand{\union}{\cup}
+\newcommand{\Union}{\bigcup}
+\newcommand{\intersection}{\cap}
+\newcommand{\thickbar}{\talloblong}
+\newcommand{\Skip}{\hbox{\bf skip}}
+
+\maketitle
+
+The CHP that existing users expect has too many primitives to model cleanly,
+having both shared variables and channels, and the channels support
+multi-channel synchronization, and peeking at channel values and state.  Rather
+than model CHP directly, we propose modeling a weaker language, HSE+ which
+contains only the shared variables and selection statements from CHP, making it
+much closer to HSE, although it assumes distinguishable states which HSE does
+not.
+
+\section{Grammar}
+\begin{align*}
+\mathrm{\ell} & :: = \top \; | \; \bot \\
+\mathrm{b} & ::= \ell \; | \;  a \; | \;
+                 \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \;
+                 \mathrm{b}_1 \vee \mathrm{b}_2 \; | \;
+                 \lnot \mathrm{b} \\
+\mathrm{P} & ::= a := b \; | \; S \; | \; *S \; | \;
+                 P_1; P_2 \; | \: P_1 || P_2 \; | \;
+                 \mathtt{\Skip} \\
+\mathrm{S} & ::=
+    [ b_1 \rightarrow P_1  \talloblong \; ... \; \talloblong b_n \rightarrow P_n ] \; | \;
+    [ b_1 \rightarrow P_1 | \; ... \; | b_n \rightarrow P_n ]
+\end{align*}
+\section{Operational Semantics}
+\subsection{Booleans}
+
+\begin{mathpar}
+\inferrule* [left=Primitive]
+    { }
+    {\sigma \models \ell = \ell}
+
+\inferrule* [left=Read]
+    {a \gets \ell \in \sigma}
+    {\sigma \models a = \ell}
+
+\inferrule* [left=Neg]
+    {\sigma \models b = \ell}
+    {\sigma \models \lnot b = \lnot \ell}
+
+\inferrule* [left=And]
+    {\sigma \models b_1 = \ell_1 \\ \sigma \models b_2 = \ell_2}
+    {\sigma \models b_1 \land b_2 = \ell_1 \land \ell_2}
+
+\inferrule* [left=Or]
+    {\sigma \models b_1 = \ell_1 \\ \sigma \models b_2 = \ell_2}
+    {\sigma \models b_1 \lor b_2 = \ell_1 \lor \ell_2}
+\end{mathpar}
+
+Behavior of a boolean statement containing an uninitialized variable is
+undefined, but if a process is of type $(\emptyset, w)$ (see Type System,
+below), then this will never happen.
+
+\subsection{Processes}
+
+\begin{mathpar}
+
+\inferrule* [left=SkipSeq]
+    { }
+    {\Skip; P, \sigma \rightarrow P, \sigma}
+
+\inferrule* [left=SkipPar]
+    { }
+    {\Skip || P, \sigma \rightarrow P, \sigma}
+
+\inferrule* [left=ParCommute]
+    { }
+    {P_1 || P_2, \sigma \rightarrow P_2 || P_1, \sigma}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule* [left=StepSeq]
+    {P_1, \sigma \rightarrow P_1', \sigma'}
+    {P_1; P_2, \sigma \rightarrow P_1'; P_2, \sigma'}
+
+\inferrule* [left=StepPar]
+    {P_1, \sigma \rightarrow P_1', \sigma'}
+    {P_1 || P_2, \sigma \rightarrow P_1' || P_2, \sigma'}
+
+\inferrule* [left=Assign]
+    {\sigma \models b = \ell}
+    {a := b, \sigma \rightarrow \Skip, \sigma \leftarrow a = \ell}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule* [left=SelectDet]
+    {\sigma \models b_i = \top \\
+     \sigma \models b_1 = \bot \land \ldots \land
+                    b_{i-1} = \bot \land \ldots \land
+                    b_n = \bot}
+    {[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
+      b_i \rightarrow P_i \thickbar \ldots \thickbar
+      b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
+
+\inferrule* [left=SelectNonDet]
+    {\sigma \models b_i = \top}
+    {[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
+      b_i \rightarrow P_i \thickbar \ldots \thickbar
+      b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule* [left=Repeat]
+    { }
+    {*S, \sigma \rightarrow S; *S, \sigma}
+
+\inferrule* [left=RepeatNoneDet]
+    {\sigma \models b_1 = \bot \land \ldots \land b_n = \bot}
+    {*[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
+      b_n \rightarrow P_n], \sigma \rightarrow \Skip, \sigma}
+
+\inferrule* [left=RepeatNoneNonDet]
+    {\sigma \models b_1 = \bot \land \ldots \land b_n = \bot}
+    {*[b_1 \rightarrow P_1 | \ldots |
+      b_n \rightarrow P_n], \sigma \rightarrow \Skip, \sigma}
+\end{mathpar}
+
+\section{Type System}
+\subsection{Booleans}
+\begin{mathpar}
+\inferrule* [left=Primitive]
+    { }
+    {\ell : \emptyset}
+
+\inferrule* [left=Read]
+    { }
+    {a : \{a\}}
+
+\inferrule* [left=Not]
+    {b : r}
+    {\lnot b : r}
+
+\inferrule* [left=And]
+    {b_1 : r_1 \\ b_2 : r_2}
+    {b_1 \land b_2 : r_1 \union r_2}
+
+\inferrule* [left=Or]
+    {b_1 : r_1 \\ b_2 : r_2}
+    {b_1 \lor b_2 : r_1 \union r_2}
+\end{mathpar}
+
+Booleans' types are a single set of variable names from which they read.  All
+booleans are well-typed; we say that a boolean $b$ is of type $r$ if the set of
+free variables in $b$ is $r$.  $r$ is a worst-case set of variables; we make no
+attempt to determine if a particular expression is independent of a particular
+variable.  For example, $a \lor \lnot a$ will evaluate to $\top$ regardless of
+$a$'s value, but we still give it the type $\{a\}$.
+
+\subsection{Programs}
+\begin{mathpar}
+\inferrule* [left=Skip]
+    { }
+    {skip : (\emptyset, \emptyset)}
+
+\inferrule* [left=Write]
+    {b : r}
+    {a := b : (r, \{a\})}
+
+\inferrule* [left=Sequence]
+    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2)}
+    {p_1; p_2 : (r_1 \union (r_2 \setminus w_1), w_1 \union w_2)}
+
+\inferrule* [left=Parallel]
+    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2) \\ w_1 \intersection w_2 = \emptyset}
+    {p_1 || p_2 :
+        ((r_1 \union r_2) \setminus (w_1 \union w_2), w_1 \union w_2)}
+
+\inferrule* [left=Selection]
+    {b_1 : q_1, \ldots, b_n : q_n \\
+     p_1 : (r_1, w_1), \ldots, p_n : (r_n, w_n)}
+    {[b_1 \rightarrow p_1  | \ldots | b_n \rightarrow p_n] : 
+     (\Union_{i=1}^{n} (q_i \union r_i), \Union_{i=1}^{n} w_i)}
+
+\inferrule* [left=Repetition]
+    {s : (r,w)}
+    {\ast s : (r,w)}
+\end{mathpar}
+
+Let $p$ range over programs, and $s$ range over both deterministic and
+non-deterministic selection statements.
+
+We say that a program $p$ is of type $(r, w)$ if the set of variables that $p$
+may read from that cannot be defined before its execution is $r$, and the set of
+variables that $p$ may write to is $w$.  A program is well-typed if it has a
+type.  We want to enforce the property that no process running in parallel with
+$p$ can write to a variable that $p$ may write to.  This is important because,
+in hardware, concurrent writes connect voltage to ground through the variable:
+the circuit may literally catch fire.
+
+The third requirement of the \textsc{Parallel} rule enforces this; if the write
+sets of both parallel programs do not overlap, then they cannot write to the
+same variables, and we will not have short circuits.
+
+Similar to how we take the worst-case interpretation of booleans, we take the
+worst-case interpretation of multiple paths of execution.  For example, the
+program $[\top \rightarrow skip \thickbar \bot \rightarrow a := c]$ will never
+read from c or write to a, but is of type $(\{c\}, \{a\})$.  While this
+interpretation is unfortunate, without it, because CHP is Turing complete, the
+halting problem could be embedded in our type system.
+
+\end{document}
