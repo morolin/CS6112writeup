@@ -6,6 +6,7 @@
 \usepackage{graphicx}
 \usepackage{fullpage}
 \usepackage{amsmath}
+\usepackage{amssymb}
 \usepackage{stmaryrd}
 \usepackage{color}
 
@@ -29,11 +30,13 @@ CHP is the highest-level language.  Seen here is CHP with boolean support only.
 \subsection{Grammar}
 
 \begin{align*}
-\ell & ::= \top \; | \perp \\
-\mathrm{b} & ::= a \; | \; \ell \; | \; \bar{A} \; | \; \widehat{A} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b}) \\
-\mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | \; (P) \; | \; \texttt{new } a \; | \; \texttt{NEW } A\\
-\mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; *[ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
-\mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
+    \ell & ::= \top \; | \perp \\
+    \mathrm{b} & ::= a \; | \; \ell \; | \; \overline{A?} \; | \; \overline{A!} \; | \; \widehat{A} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \; | \; (\mathrm{b})\\
+    \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \; | N | \; (P)\\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+        & \qquad | *[ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | *[ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+    \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2 \; | \; \underline{C} \\
+    \mathrm{N} & ::= \mathtt{new} \; a \; P \; | \; \mathtt{NEW} \; A \; P \; | \; \underline{N}
 \end{align*}
 
 Above, we are using $a ... z$ to range over variables, and $A ... Z$ to range over channels.
@@ -46,74 +49,192 @@ $*[S]$ is syntactic sugar for $*[ \top \; \rightarrow \; S]$, which is used for 
 
 $[\textrm{b}]$ is used to mean $[\textrm{b} \; \rightarrow \mathtt{skip}]$, which means that we wait for a boolean expression to be true before continuing.
 
+In addition, nothing that is underlined is valid in the definition of a program; these are all intermediate expressions that can only arise during program execution.
+
+\subsection{Environment Variables and Notation}
+Here we use $\xi$ as a metasyntactic variable for the elements of $\sigma$.
+\begin{align*}
+    \text{Set Definitions} & ::= \mathbb{B} \; | \; \mathbb{V} \; | \; \mathbb{C} \; | \; \Sigma \; | \; \Omega \\
+    \text{Environment Variables} & ::= \sigma, \varsigma, \varsigma_r, \varsigma_w, \rho, \rho_r, \rho_w, \omega \\
+    \text{Environment Variable Ops} & ::= \oslash_\xi, \odot, \oplus, \oplus_a, \ominus, \triangleleft, \diamond, \triangleright, +, -
+\end{align*}
+
+The set definitions are:
+\begin{enumerate}
+    \item $\mathbb{B} = \{\top; \bot\}$ is the set of booleans.
+    \item $\mathbb{V} = \{a; \ldots; z\}$ is the set of variables.
+    \item $\mathbb{C} = \{A; \ldots; Z\}$ is the set of channels.
+    \item $\Sigma = \{\sigma\}$ is the set of all environments.
+    \item $\Omega = \{\omega\}$ is the set of all stacks.
+\end{enumerate}
+
+The environment variable definitions are:
+\begin{enumerate}
+    \item $\sigma = \{\varsigma, \varsigma_r, \varsigma_w, \rho, \rho_r, \rho_w, \omega\}$ is simply the symbol that represents the entire environment. We will use e.g. $\sigma[\varsigma]$ to refer to the $\varsigma$ contained inside $\sigma$.
+    \item $\varsigma \subseteq \mathbb{V} \times \mathbb{B}$ is the map from in-scope variables to their boolean values.
+    \item $\varsigma_r \subseteq \mathbb{V}$ is the set of variables that the program currently has read access to.
+    \item $\varsigma_w \subseteq \mathbb{V}$ is the set of variables that the program currently has write access to.
+    \item $\rho \subseteq \mathbb{C}$ is the set of in-scope channels.
+    \item $\rho_r \subseteq \mathbb{C}$ is the multiset of channels currently being read from (is a set if channels are end-to-end).
+    \item $\rho_w \subseteq \mathbb{C} \times \mathbb{B}$ is the multimap from channels currently being written to to the booleans being sent on them (is a map if channels are end-to-end).
+    \item $\omega \in (\Sigma + (\Omega \times \Omega))^*$ is the stack of environments/double stacks, used for handling scoping.
+\end{enumerate}
+
+The environment variable operation definitions are:
+\begin{enumerate}
+    \item $\sigma \oslash_\xi \xi'$ is defined to be $\sigma$ with $\xi$ replaced with $\xi'$ (e.g. $\sigma \oslash_\varsigma \varnothing = \{\varnothing, \sigma[\varsigma_r], \sigma[\varsigma_w], \sigma[\rho_r], \sigma[\rho_w]\}$).
+    \item $\sigma \odot a$ is defined to be $\sigma \oslash_\varsigma (\{(a', \ell) \; | \; (a', \ell) \in \sigma[\varsigma] \wedge a' \neq a\}) \oslash_{\varsigma_r} (\sigma[\varsigma_r] \cup \{a\}) \oslash_{\varsigma_w} (\sigma[\varsigma_w] \cup \{a\})$.
+        In other words, this is $\sigma$ with $a$ added to both $\varsigma_r$ and $\varsigma_w$ (assuming it wasn't already there) and any binding for $a$ removed from $\varsigma$.
+    \item $\sigma \odot A$ is defined to be $\sigma \oslash_\rho (\sigma[\rho] \cup \{A\}) \oslash_{\rho_r} (\{A' \; | \; A' \in \sigma[\rho_r] \wedge A' \neq A\}) \oslash_{\rho_w} (\{(A', \ell) \; | \; (A', \ell) \in \sigma[\rho_w] \wedge A' \neq A\})$.
+        In other words, this is $\sigma$ with $A$ added to $\rho$ (assuming it wasn't already there) and any sends and receives currently in progress for $A$ removed from $\rho_w$ and $\rho_r$, respectively.
+    \item $\varsigma \oplus \varsigma'$ is defined to be $\{(a, \ell) \; | \; (a, \ell) \in \varsigma'\} \cup \{(a, \ell) \; | \; (a, \ell) \in \varsigma \wedge a \notin \mathrm{dom}(\varsigma')\}$.
+        Intuitively, this represents merging the changes from $\varsigma'$ back into $\varsigma$. Note that this operation is NOT commutative!
+    \item $\varsigma \oplus_a \varsigma'$ is defined to be $\{(a', \ell) \; | \; (a', \ell) \in \varsigma' \wedge a' \neq a\} \cup \{(a', \ell) \; | \; (a', \ell) \in \varsigma \wedge (a' = a \vee a' \notin \mathrm{dom}(\varsigma'))\}$.
+        Intuitively, this represents merging the changes from $\varsigma'$ back into $\varsigma$, but excluding any updates to $a$. Note that this operation is NOT commutative!
+    \item $\rho_r \ominus_A \rho_r'$ is defined to be $\{A' \; | \; A' \in \rho_r \wedge A' \neq A\} \cup \{A \; | \; A \in \rho_r\}$. In other words, this is $\rho_r$ with all instances of $A$ removed and replaced with all instances of $A$ in $\rho_r'$.
+    \item $\rho_w \ominus_A \rho_w'$ is defined to be $\{(A', \ell) \; | \; (A', \ell) \in \rho_w \wedge A' \neq A\} \cup \{(A, \ell) \; | \; (A, \ell) \in \rho_w\}$. In other words, this is $\rho_w$ with all pairs containing $A$ removed and replaced with all pairs containing $A$ in $\rho_w'$.
+    \item $\omega \triangleleft \sigma$ is $\omega$ with $\sigma$ pushed onto it.
+    \item $\omega \triangleleft (\omega', \omega'')$ is $\omega$ with $(\omega', \omega'')$ pushed onto it.
+    \item $\omega \diamond \sigma$ is $\omega$ with its top element replaced with $\sigma$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \diamond (\omega', \omega'')$ is $\omega$ with its top element replaced with $(\omega', \omega'')$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \; \triangleright$ is $\omega$ with its top element popped off (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \triangleright \sigma$ assigns $\sigma$ to be the top element of $\omega$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $\omega \triangleright (\omega', \omega'')$ assigns $(\omega', \omega'')$ to be the top element of $\omega$ (this operation gets `stuck' if $\omega$ happens to be empty).
+    \item $+, -$ represent adding and removing an element from a multiset or multimap, respectively.
+\end{enumerate}
+
+It is an invariant that $\varsigma_w \subseteq \varsigma_r \subseteq \mathrm{dom}(\varsigma)$; likewise, it is an invariant that $\rho_r \cup \mathrm{dom}(\rho_w) \subseteq \rho$.
+
+$\sigma$ is initialized to be $\{\varnothing, \varnothing, \varnothing, \varnothing, \varnothing, \varnothing, \langle \rangle\}$.
+
 \subsection{Small-Step Semantics}
+\subsubsection{Boolean Rules}
+$$
+    \frac{}{\sigma \models \ell : \ell} \qquad
+    \frac{\sigma \models \mathrm{b} : \top}{\sigma \models \neg \mathrm{b} : \bot} \qquad
+    \frac{\sigma \models \mathrm{b} : \bot}{\sigma \models \neg \mathrm{b} : \top} \qquad
+    \frac{\sigma \models \mathrm{b} : \top \quad \sigma \models \mathrm{b}' : \top}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \top} \qquad
+    \frac{\sigma \models \mathrm{b} : \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \bot} \qquad
+    \frac{\sigma \models \mathrm{b}' : \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b}' : \bot} $$$$
+    \frac{\sigma \models \mathrm{b} : \bot \quad \sigma \models \mathrm{b}' : \bot}{\sigma \models \mathrm{b} \vee \mathrm{b}' : \bot} \qquad
+    \frac{\sigma \models \mathrm{b} : \top}{\sigma \models \mathrm{b} \vee \mathrm{b}' : \top} \qquad
+    \frac{\sigma \models \mathrm{b}' : \top}{\sigma \models \mathrm{b} \vee \mathrm{b}' : \top} \qquad
+    \frac{a \in \sigma[\varsigma_r] \quad (a, \ell) \in \sigma}{\sigma \models a : \ell} $$$$
+    \frac{A \in \sigma[\rho_r]}{\sigma \models \overline{A?} : \top} \qquad
+    \frac{A \notin \sigma[\rho_r]}{\sigma \models \overline{A} : \bot} \qquad
+    \frac{(A, \ell) \in \sigma[\rho_w]}{\sigma \models \overline{A!} : \top} \qquad
+    \frac{(A, \ell) \notin \sigma[\rho_w]}{\sigma \models \overline{A!} : \bot} \qquad
+    \frac{(A, \ell) \in \sigma[\rho_w]}{\sigma \models \widehat{A} : \ell}
+$$
 
-All of the following rules work up to structural congruence ($\equiv$), which is defined by $\alpha$ conversion and the following rules:
+\subsubsection{LTS Rules}
+Here we use $\delta$ as a metasyntactic variable for the labels on transitions.
+$$
+    % skip, assign, sequential and parallel composition rules
+    \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+    \frac{a \in \sigma[\varsigma_w] \quad \sigma \models \mathrm{b} : \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma \oslash_\varsigma (\sigma[\varsigma] \oplus \{(a, \ell)\}) \rangle} $$$$
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+%   \frac{}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P || Q, \sigma \oslash_\omega \sigma[\omega] \triangleleft (\sigma[\omega], \sigma[\omega]) \rangle} \qquad
+    \frac{\langle P, \sigma \oslash_{\varsigma_w} \varnothing \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma \rangle} \qquad
+    \frac{\langle Q, \sigma \oslash_{\varsigma_w} \varnothing \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma \rangle} $$$$
+    % selection rules
+    \frac{\sigma \models \textrm{b}_i \quad \sigma \models \lnot \mathrm{b}_1 \wedge \; \ldots \; \wedge \; \lnot \mathrm{b}_{i-1} \; \wedge \lnot \mathrm{b}_{i+1} \wedge \; \ldots \; \wedge \; \lnot\mathrm{b}_n } {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } \qquad
+    \frac{\sigma \models \textrm{b}_i} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+    \frac{\sigma \models \lnot b_1 \wedge \ldots \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma\rangle } \qquad
+    \frac{\sigma \models \lnot b_1 \wedge \ldots \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma \rangle } $$$$
+%   \frac{\langle S, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle}{\langle *S, \sigma \rangle \xrightarrow{\tau} \langle P;*S, \sigma \rangle} $$$$
+    \frac{\sigma \models \textrm{b}_i \quad \sigma \models \lnot \mathrm{b}_1 \wedge \; \ldots \; \wedge \; \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; \ldots \; \wedge \; \lnot\mathrm{b}_n } {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    \frac{\sigma \models \textrm{b}_i} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    % new, NEW rules
+    \frac{}{\langle \mathtt{new} \; a \; P, \sigma \rangle \xrightarrow{\tau} \langle \underline{\mathtt{new} \; a \; P}, \sigma \oslash_\omega (\sigma[\omega] \triangleleft \sigma \odot a) \rangle} \qquad
+    \frac{}{\langle \underline{\mathtt{new} \; a \; \mathtt{skip}}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma \oslash_\omega (\sigma[\omega] \; \triangleright) \rangle} $$$$
+    \frac{\sigma[\omega] \triangleright \sigma' \quad \langle P, \sigma' \rangle \xrightarrow{\delta} \langle P', \sigma'' \rangle}{\langle \underline{\mathtt{new} \; a \; P}, \sigma \rangle \xrightarrow{\delta} \langle \underline{\mathtt{new} \; a \; P'}, \sigma'' \oslash_\varsigma (\sigma[\varsigma] \oplus_a \sigma''[\varsigma]) \oslash_{\varsigma_r} \sigma[\varsigma_r] \oslash_{\varsigma_w} \sigma[\varsigma_w] \oslash_\omega (\sigma[\omega] \diamond \sigma'') \rangle} $$$$
+    \frac{}{\langle \mathtt{NEW} \; A \; P, \sigma \rangle \xrightarrow{\tau} \langle \underline{\mathtt{NEW} \; A \; P}, \sigma \oslash_\omega (\sigma[\omega] \triangleleft \sigma \odot A) \rangle} \qquad
+    \frac{}{\langle \underline{\mathtt{NEW} \; A \; \mathtt{skip}}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma \oslash_\omega (\sigma[\omega] \; \triangleright) \rangle} $$$$
+    \frac{\sigma[\omega] \triangleright \sigma' \quad \langle P, \sigma' \rangle \xrightarrow{\delta} \langle P', \sigma'' \rangle \quad A?a : \ell \notin \delta \quad A!\ell \notin \delta}{\langle \underline{\mathtt{NEW} \; A \; P}, \sigma \rangle \xrightarrow{\delta} \langle \underline{\mathtt{NEW} \; A \; P'}, \sigma'' \oslash_\rho \sigma[\rho] \oslash_{\rho_r} (\sigma''[\rho_r] \ominus_A \sigma[\rho_r]) \oslash_{\rho_w} (\sigma''[\rho_w] \ominus_A \sigma[\rho_w]) \oslash_\omega (\sigma[\omega] \diamond \sigma'') \rangle} $$$$
+    % communication rules
+    \frac{A \in \sigma[\rho] \quad a \in \sigma[\varsigma_w]}{\langle A?a, \sigma \rangle \xrightarrow{\tau} \langle \underline{A?a}, \sigma \oslash_{\rho_r} (\sigma[\rho_r] + A) \rangle} \qquad
+    \frac{A \in \sigma[\rho] \quad \sigma \models \mathrm{b} : \ell}{\langle A!\mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \underline{A!\ell}, \sigma \oslash_{\rho_w} (\sigma[\rho_w] + (A, \ell)) \rangle} $$$$
+    \frac{}{\langle \underline{A?a}, \sigma \rangle \xrightarrow{\{A?a : \ell\}} \langle \mathtt{skip}, \sigma \oslash_\varsigma (\sigma[\varsigma] \oplus \{(a, \ell)\}) \oslash_{\rho_r} (\sigma[\rho_r] - A) \rangle} $$$$
+    \frac{}{\langle \underline{A!\ell}, \sigma \rangle \xrightarrow{\{A!\ell\}} \langle \mathtt{skip}, \sigma \oslash_{\rho_w} (\sigma[\rho_w] - (A, \ell)) \rangle} $$$$
+    \frac{A \in \sigma[\rho] \quad a \in \sigma[\varsigma_w] \quad \langle C, \sigma \rangle \xrightarrow{\tau} \langle \underline{C}, \sigma' \rangle}{\langle A?a \bullet C, \sigma \rangle \xrightarrow{\tau} \langle \underline{A?a \bullet C}, \sigma' \oslash_{\rho_r} (\sigma'[\rho_r] + A) \rangle} \qquad
+    \frac{A \in \sigma[\rho] \quad \sigma \models \mathrm{b} : \ell \quad \langle C, \sigma \rangle \xrightarrow{\tau} \langle \underline{C}, \sigma' \rangle}{\langle A!\mathrm{b} \bullet C, \sigma \rangle \xrightarrow{\tau} \langle \underline{A!\ell \bullet C}, \sigma' \oslash_{\rho_w} (\sigma'[\rho_w] + (A, \ell)) \rangle} $$$$
+    \frac{\langle \underline{C}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \underline{A?a \bullet C}, \sigma \rangle \xrightarrow{\delta + \{A?a : \ell\}} \langle \mathtt{skip}, \sigma' \oslash_\varsigma (\sigma'[\varsigma] \oplus \{(a, \ell)\}) \oslash_{\rho_r} (\sigma'[\rho_r] - A) \rangle} $$$$
+    \frac{\langle \underline{C}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \underline{A!\ell \bullet C}, \sigma \rangle \xrightarrow{\delta + \{A!\ell\}} \langle \mathtt{skip}, \sigma' \oslash_{\rho_w} (\sigma'[\rho_w] - (A, \ell)) \rangle} $$$$
+    \frac{\langle P, \sigma \rangle \xrightarrow{\{A!\ell\}} \langle P', \sigma' \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{\{A?a : \ell\}} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma'' \rangle} \qquad
+    \frac{\langle P, \sigma \rangle \xrightarrow{\{A?a : \ell\}} \langle P', \sigma' \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{\{A!\ell\}} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma'' \rangle} $$$$
+    \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma'' \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta + A?a : \ell} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' + A!\ell} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma''''' \rangle} $$$$
+    \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma'' \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta + A!\ell} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' + A?a : \ell} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma''''' \rangle}
+$$
 
-\[
-P || \mathtt{skip} \equiv P \;\;\;\;\;  P || Q \equiv Q || P %  \;\;\;\;\;  \mathtt{skip}; P \equiv P \\
-\]
-\[
-P || (Q || R) \equiv (P || Q) || R 
-\]
-\[
-A \bullet B \equiv B \bullet A \;\;\;\;\; ( A \bullet B ) \bullet C \equiv A \bullet ( B \bullet C )
-\]
+The labels need to be multisets, unless channels are end-to-end, in which case they just need to be sets.
 
-Additionally, the following rules are augmented by an environment, $\sigma$, which is a mapping from variables to boolean values, $\sigma : \textrm{Var} \rightarrow \mathcal{B}$ 
-
-Boolean simplification $\overset{b}{\rightarrow}$ works as typical on AND and OR, though it is also extended with channel probes ($\bar{A}$), which are true  ($\top$) when a channel wishes to communicate on channel A, and false ($\perp$) otherwise and value probes ($\widehat{A}$), which are defined below \textbf{XXX: We should probably define an actual boolean simplification set which includes both probes and value probes.  I couldn't think of a good way to express them easily, as both of these need a context.}.
-
-\begin{align*}
-% Remove a skip statement
-\frac{}{\langle \mathtt{skip}; P, \sigma \rangle \rightarrow \langle P, \sigma \rangle } & \\ \\
-% Simplify boolean under assignment
-\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle a := b, \sigma\rangle \overset{b}{\rightarrow}  \langle a := b', \sigma \rangle} &\;\; 
-% Assignment
-\frac{}{\langle a := \ell, \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\ell/a] \rangle } \\ \\
-% Sequential Composition
-\frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle }{\langle P_1; P_2, \sigma\rangle \rightarrow \langle P_1^\prime; P_2, \sigma^\prime\rangle} &
-%Parallel Composition
-\;\; \frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle}{\langle P_1 || P_2, \sigma\rangle \rightarrow \langle P_1^\prime || P_2, \sigma^\prime\rangle} \\ \\
-% Deterministic Selection
-\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \; \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } &\;\;
-%Non-deterministic Selection
- \frac{\sigma \models \textrm{b}_i} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } \\ \\
-% Repeated Deterministic Selection no option good
-\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma\rangle } &\;\; 
-% Repeateed Non-deterministic Selection no options good
-\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma \rangle } 
-\end{align*}
-
-\begin{align*}
-% Repeated Deterministic Selection
-\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } \\
-% Repeated Nondeterministic Selection
-\\ \frac{\sigma \models \textrm{b}_i} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
-\end{align*}
-
-\begin{align*}
-% Simplify Booleans under send
-\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle A!b, \sigma\rangle \overset{b}{\rightarrow}  \langle A!b', \sigma \rangle} &\;\; 
-% Value probe
-\frac{}{\langle A\# \; || \; A!\ell , \sigma\rangle \overset{b}{\rightarrow} \langle \ell \;||\;A!\ell, \sigma \rangle} \\ \\
-% Channel probe?
-% Communication
-\frac{} {\langle A!\ell || A?a, \sigma \rangle \rightarrow \langle \mathtt{skip} ,\sigma[\ell/a] \rangle} &\;\; 
-% Parallel/Series composition
-\frac{\langle P_1 || ... || P_n, \sigma \rangle \rightarrow \langle P_1^\prime || ... || P_n^\prime, \sigma^\prime \rangle } {\langle P_1;\;Q_1 || ... || P_n;\;Q_n, \sigma \rangle \rightarrow \langle P_1^\prime;\;Q_1 || ... || P_n^\prime;\; Q_n, \sigma^\prime \rangle } \\ \\
-% Bullet Send
-\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A!\ell \; || \; P \; || \; A?a , \sigma \rangle
-\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle } & \;\;
-% Bullet receive
-\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A?a \; || \; P \; || \; A!\ell , \sigma \rangle
-\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle }
-\end{align*}
-
-\begin{align*}
-% Bullet send and recieve
-\frac{ \langle C_1 \; || \; C_2 \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime , \sigma^\prime \rangle }{ \langle C_1 \bullet A!\ell \; || \; C_2 \bullet A?a \; || \; P , \sigma \rangle \rightarrow \langle  \mathtt{skip} \; || \; P^\prime, \sigma^\prime[\ell/a] \rangle } & 
-\end{align*}
+%All of the following rules work up to structural congruence ($\equiv$), which is defined by $\alpha$ conversion and the following rules:
+%
+%\[
+%P || \mathtt{skip} \equiv P \;\;\;\;\;  P || Q \equiv Q || P %  \;\;\;\;\;  \mathtt{skip}; P \equiv P \\
+%\]
+%\[
+%P || (Q || R) \equiv (P || Q) || R 
+%\]
+%\[
+%A \bullet B \equiv B \bullet A \;\;\;\;\; ( A \bullet B ) \bullet C \equiv A \bullet ( B \bullet C )
+%\]
+%
+%Additionally, the following rules are augmented by an environment, $\sigma$, which is a mapping from variables to boolean values, $\sigma : \textrm{Var} \rightarrow \mathcal{B}$ 
+%
+%Boolean simplification $\overset{b}{\rightarrow}$ works as typical on AND and OR, though it is also extended with channel probes ($\bar{A}$), which are true  ($\top$) when a channel wishes to communicate on channel A, and false ($\perp$) otherwise and value probes ($\widehat{A}$), which are defined below \textbf{XXX: We should probably define an actual boolean simplification set which includes both probes and value probes.  I couldn't think of a good way to express them easily, as both of these need a context.}.
+%
+%\begin{align*}
+%% Remove a skip statement
+%\frac{}{\langle \mathtt{skip}; P, \sigma \rangle \rightarrow \langle P, \sigma \rangle } & \\ \\
+%% Simplify boolean under assignment
+%\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle a := b, \sigma\rangle \overset{b}{\rightarrow}  \langle a := b', \sigma \rangle} &\;\; 
+%% Assignment
+%\frac{}{\langle a := \ell, \sigma\rangle \rightarrow \langle \mathtt{skip}, \sigma[\ell/a] \rangle } \\ \\
+%% Sequential Composition
+%\frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle }{\langle P_1; P_2, \sigma\rangle \rightarrow \langle P_1^\prime; P_2, \sigma^\prime\rangle} &
+%% Parallel Composition
+%\;\; \frac{\langle P_1, \sigma\rangle \rightarrow \langle P_1^\prime, \sigma^\prime\rangle}{\langle P_1 || P_2, \sigma\rangle \rightarrow \langle P_1^\prime || P_2, \sigma^\prime\rangle} \\ \\
+%% Deterministic Selection
+%\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \; \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } &\;\;
+%% Non-deterministic Selection
+%\frac{\sigma \models \textrm{b}_i} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i , \sigma\rangle  } \\ \\
+%% Repeated Deterministic Selection no option good
+%\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma\rangle } &\;\; 
+%% Repeated Non-deterministic Selection no options good
+%\frac{\sigma \models \lnot b_1 \wedge ... \wedge \lnot b_n}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle \mathtt{skip} , \sigma \rangle } 
+%\end{align*}
+%
+%\begin{align*}
+%% Repeated Deterministic Selection
+%\frac{\sigma \models \textrm{b}_i \;\;\; \sigma \models \lnot \mathrm{b}_1 \wedge \; ... \; \wedge \; \lnot \mathrm{b}_{i-1} \wedge \lnot \mathrm{b}_{i+1} \wedge \; ... \; \wedge \; \lnot\mathrm{b}_n } {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } \\
+%% Repeated Nondeterministic Selection
+%\\ \frac{\sigma \models \textrm{b}_i} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \rightarrow \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; ... \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
+%\end{align*}
+%
+%\begin{align*}
+%% Simplify Booleans under send
+%\frac{\langle \textrm{b}, \sigma \rangle \overset{b}{\rightarrow} \langle \textrm{b}^\prime, \sigma \rangle}{\langle A!b, \sigma\rangle \overset{b}{\rightarrow}  \langle A!b', \sigma \rangle} &\;\; 
+%% Value probe
+%\frac{}{\langle A\# \; || \; A!\ell , \sigma\rangle \overset{b}{\rightarrow} \langle \ell \;||\;A!\ell, \sigma \rangle} \\ \\
+%% Channel probe?
+%% Communication
+%\frac{} {\langle A!\ell || A?a, \sigma \rangle \rightarrow \langle \mathtt{skip} ,\sigma[\ell/a] \rangle} &\;\; 
+%% Parallel/Series composition
+%\frac{\langle P_1 || ... || P_n, \sigma \rangle \rightarrow \langle P_1^\prime || ... || P_n^\prime, \sigma^\prime \rangle } {\langle P_1;\;Q_1 || ... || P_n;\;Q_n, \sigma \rangle \rightarrow \langle P_1^\prime;\;Q_1 || ... || P_n^\prime;\; Q_n, \sigma^\prime \rangle } \\ \\
+%% Bullet Send
+%\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A!\ell \; || \; P \; || \; A?a , \sigma \rangle
+%\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle } & \;\;
+%% Bullet receive
+%\frac{ \langle C \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime, \sigma^\prime \rangle }{ \langle C \bullet A?a \; || \; P \; || \; A!\ell , \sigma \rangle
+%\rightarrow \langle \mathtt{skip} \; || \; P^\prime,  \sigma'[\ell/a]  \rangle }
+%\end{align*}
+%
+%\begin{align*}
+%% Bullet send and recieve
+%\frac{ \langle C_1 \; || \; C_2 \; || \; P, \sigma \rangle \rightarrow \langle \mathtt{skip} \; || \; P^\prime , \sigma^\prime \rangle }{ \langle C_1 \bullet A!\ell \; || \; C_2 \bullet A?a \; || \; P , \sigma \rangle \rightarrow \langle  \mathtt{skip} \; || \; P^\prime, \sigma^\prime[\ell/a] \rangle } & 
+%\end{align*}
 
 \section{HSE}
 
