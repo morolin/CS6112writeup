@@ -1,0 +1,94 @@
+\documentclass[times, 10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{fullpage}
+\usepackage{stmaryrd}
+
+\title{CHP communications in HSE+}
+\author{Stephen Longfield}
+
+\begin{document}
+
+\maketitle
+
+In the process of synthesizing asynchronous circuits, the first step is to translate all of the channel actions into actions on shared variables.  This process is known as Handshake Expanding, and the resultant representation is known as the "Handshake Expansion". As these expansions are limited to shared variables, we can unify our analysis of channels and shared variables, and thus simplify our reasoning.  This is particularly attractive because all of the restrictions that apply to shared variables directly correspond to restrictions on channels.
+
+\section{Sends and Recieves}
+
+Channels are used to either send data between processes that are executing in parallel, or to a dataless communication for synchronization purposes. In either case, they are implemented using variables whose access is shared between two processes. 
+
+The most common way to do this is with the four-phase channel.  If we have the channel $R$, it is implemented with two shared variables, an input, $R_i$ and an output $R_o$.  This channel can either be "active", meaning that its first action is to set its output variable, or passive, where the first action is to wait on the input.  Because of these orderings, a passive channel can only interact with an active channel, and vice-versa. An example of each is below
+
+Active:
+\[
+R_o\!\uparrow;\; [R_i];\; R_o\!\downarrow; [\lnot R_i]
+\]
+
+Passive:
+\[
+[R_i]; \; R_o\!\uparrow;\; [\lnot R_i];\; R_o\!\downarrow
+\]
+
+The channels above cannot carry any data beyond synchronization.  To do that, we need to extend the inputs or outputs, depending on if we are trying to send or recieve.  For a send, the variables that need to be a set are the outputs, and for a receive, it needs to be the inputs. Values are encoded into this set of variables in such a way that it is possible to tell if the data is valid, if it has not become valid, or if it is in a neutral state.
+
+As an example, the active reshuffling of an output $R!x$ may look like:
+
+\[
+R_o := x; [R_i]; R_o\!\Downarrow; [~R_i]
+\]
+
+Where $\Downarrow$ corresponds to setting $R_o$ to the neutral state.
+
+It is also possible to do communications using a two-phase channel.  This is is similar to a four-phase channel, except each half of the communication can hold information.  This is more typically used for synchronization, with one possible active expansion being:
+
+\[
+R_o := \lnot R_o; [R_i = R_o]
+\]
+
+And a passive expansion being:
+
+\[
+[R_i = R_o]; R_o := \lnot R_o
+\]
+
+Each of these expansions has a complimentary version, where the check is for inequality as opposed to equality. For the system to be functional, you must guarantee that these two versions of two-phase handshake always follow each other in any repetitive execution flow. For this reason, two-phase handshakes are sometimes thought of as four-phase handshakes that have been spread out.
+
+\subsection{Typing}
+
+For each channel we create in the CHP, we create several variables in the HSE.  A Boolean acknowledge variable is created, $R_a$, as well as an array of Boolean values $R_{d_i}$ for the data being cared by the channel.  When we do a send action on some channel $R$, it must have read access to the value $R_a$, and write access to the values $R_{d_i}$.  The typing for receives is symmetric, requiring the read access to $R_{d_i}$, and write access to $R_a$.  
+
+As our parallel composition rule restricts any two processes running in parallel from owning write access to the same variable, it is impossible for two processes to be attempting to send or receive on the channel at any one time. Additionally, since well-typed systems do not have anything in the read set, both the sender and receiver must exist.
+
+\section{Probes}
+
+Fundamentally, a probe means that if you attempt to do an action on a channel, that action will not block. Additionally, as we consider a probe to be a boolean value, it must be possible to obtain the value of the probe without doing any actions. 
+
+Therefore, it is a requirement that any channel that is probed is implemented with a passive handshake. The probe then compiles down to a check if the input condition is valid.  For a probe on a send, this would correspond to seeing if the acknowledge is set low, and for a probe on a receive, it would correspond to checking if the data was valid.
+
+\section{Bullet}
+
+If two channel actions are composed with the bullet operator, they are constrained to complete at the same time.  To ensure that this will be the case in a four-phase handshake, we interleave the ``reset'' halves of the communication in such a way that they cannot complete except at the same time.  The interleaving of the upgoing half is unconstrained.
+
+If the original CHP was $L\bullet R$, and both $L$ and $R$ are implemented with passive channels, the reset interleaving would be:
+
+\[
+[\lnot L_i \wedge \lnot R_i]; \;(L_o\!\downarrow || R_o \! \downarrow)
+\]
+
+This extends naturally to as many passive channels as you would like.
+\\
+
+
+If in the original CHP, you had $L \bullet R$, where $L$ is Active, and $R$ is passive, the reset interleaving will be:
+
+\[
+[\lnot R_i]; \; L_o\! \downarrow; \; [\lnot L_i]; \; R_o\! \downarrow
+\]
+
+This can be extended with as many passive channels as you would like, but the interleaving only allows for one active channel.
+\\
+
+If both $L$ and $R$ are active, there does not exist an interleaving that will guarantee that they must complete simultaneously. 
+
+\end{document}
