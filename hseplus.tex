@@ -96,14 +96,15 @@ below), then this will never happen.
 
 \inferrule* [left=Assign]
     {\sigma \models b = \ell}
-    {a := b, \sigma \rightarrow \Skip, \sigma \leftarrow a = \ell}
+    {a := b, \sigma \rightarrow \Skip, \sigma[ a = \ell]}
 \end{mathpar}
 
 \begin{mathpar}
 \inferrule* [left=SelectDet]
-    {\sigma \models b_i = \top \\
-     \sigma \models b_1 = \bot \land \ldots \land
-                    b_{i-1} = \bot \land \ldots \land
+    {\sigma \models b_1 = \bot \land \ldots \land
+                    b_{i-1} = \bot \land
+                    b_i = \top \land
+                    b_{i+1} = \bot \land \ldots \land
                     b_n = \bot}
     {[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
       b_i \rightarrow P_i \thickbar \ldots \thickbar
@@ -119,8 +120,8 @@ below), then this will never happen.
 \marginpar{avs: this is actually a little wrong}
 \begin{mathpar}
 \inferrule* [left=Repeat]
-    { }
-    {*S, \sigma \rightarrow S; *S, \sigma}
+    {S, \sigma \rightarrow P, \sigma}
+    {*S, \sigma \rightarrow P; *S, \sigma}
 
 \inferrule* [left=RepeatNoneDet]
     {\sigma \models b_1 = \bot \land \ldots \land b_n = \bot}
@@ -218,5 +219,15 @@ non-deterministic selection statements.
 The third requirement of the \textsc{Parallel} rule prevents fires; if the write
 sets of both parallel programs do not overlap, then they cannot write to the
 same variables, and we will not have short circuits.
+
+\section{Crap about shared variables in CHP}
+
+Track the set of \emph{vulnerable} variables (sum of free variables in all
+booleans in programs).  Forbid parallel compositions in CHP where the set of
+vulnerable variables and the set of written variables in the other process
+overlap.
+
+Also need a type inference system that will assign active/passive directionality
+to channels
 
 \end{document}
