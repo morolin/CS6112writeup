@@ -116,6 +116,7 @@ below), then this will never happen.
       b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
 \end{mathpar}
 
+\marginpar{avs: this is actually a little wrong}
 \begin{mathpar}
 \inferrule* [left=Repeat]
     { }
@@ -132,7 +133,32 @@ below), then this will never happen.
       b_n \rightarrow P_n], \sigma \rightarrow \Skip, \sigma}
 \end{mathpar}
 
-\section{Type System}
+\section{Static Analysis}
+
+In the physical reality of implementing our language on hardware, if we ever
+have two concurrent programs that write two different values to the same
+variable simultaneously, we will connect voltage to ground through the variable,
+which is a short circuit, and will cause the circuit to literally catch fire.
+To prevent this from happening, we provide a static analysis method that tracks
+which variables a program may write to, and prohibits parallel processes from
+writing to the same variables.  Because HSE+ is Turing-complete modulo infinite
+memory, we must take a worst-case evaluation of select statements.
+
+Additionally, we track variables which a program may read from which are certain
+to be not defined when they are read.  This does not provide strong guarantees,
+since we could set a variable only in one branch of a guard before reading it,
+but it is simple to track, and catches many programming errors.  When
+implementing CHP in HSE+, it also allows us to provide a guarantee that at
+least certain obvious cases of communication via non-channel shared variables is
+not occurring.
+
+A process or boolean has a \emph{footprint} assigned to it if it does not
+contain the possibility of simultaneous writes.  A boolean's footprint is simply
+the set of variables it reads from, and a process's footprint is a pair $(r,
+w)$, where $w$ is the set of variables it writes to, and $r$ is the set of
+variables that the process reads from before it could possibly have written to
+them.
+
 \subsection{Booleans}
 \begin{mathpar}
 \inferrule* [left=Primitive]
@@ -156,13 +182,6 @@ below), then this will never happen.
     {b_1 \lor b_2 : r_1 \union r_2}
 \end{mathpar}
 
-Booleans' types are a single set of variable names from which they read.  All
-booleans are well-typed; we say that a boolean $b$ is of type $r$ if the set of
-free variables in $b$ is $r$.  $r$ is a worst-case set of variables; we make no
-attempt to determine if a particular expression is independent of a particular
-variable.  For example, $a \lor \lnot a$ will evaluate to $\top$ regardless of
-$a$'s value, but we still give it the type $\{a\}$.
-
 \subsection{Programs}
 \begin{mathpar}
 \inferrule* [left=Skip]
@@ -180,7 +199,7 @@ $a$'s value, but we still give it the type $\{a\}$.
 \inferrule* [left=Parallel]
     {p_1:(r_1, w_1) \\ p_2:(r_2, w_2) \\ w_1 \intersection w_2 = \emptyset}
     {p_1 || p_2 :
-        ((r_1 \union r_2) \setminus (w_1 \union w_2), w_1 \union w_2)}
+        ((r_1 \setminus w_2) \union (r_2\setminus w_1), w_1 \union w_2)}
 
 \inferrule* [left=Selection]
     {b_1 : q_1, \ldots, b_n : q_n \\
@@ -196,23 +215,8 @@ $a$'s value, but we still give it the type $\{a\}$.
 Let $p$ range over programs, and $s$ range over both deterministic and
 non-deterministic selection statements.
 
-We say that a program $p$ is of type $(r, w)$ if the set of variables that $p$
-may read from that cannot be defined before its execution is $r$, and the set of
-variables that $p$ may write to is $w$.  A program is well-typed if it has a
-type.  We want to enforce the property that no process running in parallel with
-$p$ can write to a variable that $p$ may write to.  This is important because,
-in hardware, concurrent writes connect voltage to ground through the variable:
-the circuit may literally catch fire.
-
-The third requirement of the \textsc{Parallel} rule enforces this; if the write
+The third requirement of the \textsc{Parallel} rule prevents fires; if the write
 sets of both parallel programs do not overlap, then they cannot write to the
 same variables, and we will not have short circuits.
-
-Similar to how we take the worst-case interpretation of booleans, we take the
-worst-case interpretation of multiple paths of execution.  For example, the
-program $[\top \rightarrow skip \thickbar \bot \rightarrow a := c]$ will never
-read from c or write to a, but is of type $(\{c\}, \{a\})$.  While this
-interpretation is unfortunate, without it, because CHP is Turing complete, the
-halting problem could be embedded in our type system.
 
 \end{document}
