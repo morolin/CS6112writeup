@@ -1,0 +1,84 @@
+\documentclass{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{fullpage}
+
+\begin{document}
+
+\title{CHP Translation and LTS Semantics}
+\author{}
+\maketitle
+
+\section{CHP Translation}
+
+\subsection{Grammar}
+\begin{align*}
+    \ell & ::= \top \; | \perp \\
+    \mathrm{b} & ::= a \; | \; \ell \; | \; \overline{A} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
+    \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+    \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
+\end{align*}
+
+The only terms appearing in this grammar but not the HSE+ grammar are: $\overline{A}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
+Therefore, it suffices to give translations for just these extra terms; everything else translates to its equivalent in HSE+.
+However, in order to give LTS semantics for channel operations, we need to introduce a system of labels for variables, so that we can distinguish HSE+ channel variables from simply a program's internal variables.
+Thus, we differentiate variables $a$ into ordinary variables (denoted by $a$, as before), channel acknowledge variables (denoted by $a_A$), and channel data variables (denoted by $t_A$ and $f_A$).
+We also need to pick an active end and a passive end for each channel in order to translate into HSE+.
+We decide which end of the channel (the sending end or the receiving end) should be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$ having its sending end active, and $\rho \vDash A?$ the channel $A$ having its receiving end active.
+For simplicity, we restrict all channels to be 1-bit channels.
+
+\subsection{Translation}
+\begin{align*}
+    \overline{A} & \Rightarrow \left\{ \begin{matrix} t_A \vee f_A & \qquad \rho \vDash A! \\ a_A & \qquad \rho \vDash A? \end{matrix} \right. \\
+    A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot; [\neg a_A \rightarrow \mathtt{skip}] & \qquad \rho \vDash A! \\
+                                                      [a_A \rightarrow \mathtt{skip}]; [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [\neg a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot & \qquad \rho \vDash A? \end{matrix} \right. \\
+    A?a & \Rightarrow \left\{ \begin{matrix} [t_A \vee f_A \rightarrow \mathtt{skip}]; a := t_A; a_A := \top; [\neg t_A \wedge \neg f_A \rightarrow \mathtt{skip}]; a_A := \bot & \qquad \rho \vDash A! \\
+                                             a_A := \top; [t_A \vee f_A \rightarrow \mathtt{skip}]; a := t_A; a_A := \bot; [\neg t_A \wedge \neg f_A \rightarrow \mathtt{skip}] & \qquad \rho \vDash A? \end{matrix} \right. \\
+    C_1 \bullet C_2 & \Rightarrow \text{TODO}
+\end{align*}
+
+\newpage
+\section{LTS Semantics}
+$$
+    % skip, assign, sequential and parallel composition rules
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma' \rangle} \qquad
+    \frac{\langle Q, \sigma \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma' \rangle} \qquad
+    \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma[a = \ell] \rangle} \qquad
+    \frac{}{\langle \mathtt{skip} || P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+    \frac{}{\langle P || \mathtt{skip}, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+    % selection rules
+    \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \; \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } \qquad
+    \frac{\sigma \models \mathrm{b}_i = \top} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+    \frac{\sigma \models b_1 = \bot \wedge \ldots \wedge b_n = \bot}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma\rangle } \qquad
+    \frac{\sigma \models b_1 = \bot \wedge \ldots \wedge b_n = \bot}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma \rangle } $$$$
+%   \frac{\langle S, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle}{\langle *S, \sigma \rangle \xrightarrow{\tau} \langle P;*S, \sigma \rangle} $$$$
+    \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    \frac{\sigma \models \mathrm{b}_i = \top} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    % communication rules
+    \frac{\sigma \models \mathrm{b} = \top}{\langle [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot; [\neg a_A \rightarrow \mathtt{skip}], \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma[t_A = \top, a_A = \top] \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \bot}{\langle [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot; [\neg a_A \rightarrow \mathtt{skip}], \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[f_A = \top, a_A = \top] \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \top}{\langle [a_A \rightarrow \mathtt{skip}]; [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [\neg a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot, \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma[t_A = \top, a_A = \top] \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \bot}{\langle [a_A \rightarrow \mathtt{skip}]; [\mathrm{b} \rightarrow t_A := \top \talloblong \neg \mathrm{b} \rightarrow f_A := \top]; [\neg a_A \rightarrow \mathtt{skip}]; t_A := \bot; f_A := \bot, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[f_A = \top, a_A = \top] \rangle} $$$$
+    \frac{}{\langle [t_A \vee f_A \rightarrow \mathtt{skip}]; a := t_A; a_A := \top; [\neg t_A \wedge \neg f_A \rightarrow \mathtt{skip}]; a_A := \bot, \sigma \rangle \xrightarrow{A?a} \langle \mathtt{skip}, \sigma[t_A = \top, a_A = \top] \rangle} $$$$
+    \frac{}{\langle a_A := \top; [t_A \vee f_A \rightarrow \mathtt{skip}]; a := t_A; a_A := \bot; [\neg t_A \wedge \neg f_A \rightarrow \mathtt{skip}], \sigma \rangle \xrightarrow{A?a} \langle \mathtt{skip}, \sigma[f_A = \top, a_A = \top] \rangle} $$$$
+    \frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma \rangle \xrightarrow {A?a} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} \qquad
+    \frac{\langle P, \sigma \rangle \xrightarrow{A?a} \langle P', \sigma' \rangle \quad \langle Q, \sigma \rangle \xrightarrow {A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+$$
+
+We initialize $\sigma$ to include $a_A = \bot$, $t_A = \bot$, $f_A = \bot$ for all channels $A$.
+Furthermore, note that the labels on the transitions are sets, since we can have several channel operations occurring at once.
+
+TODO: currently, when performing a channel op, not only do the communication rules apply, but so do the ordinary rules (e.g. selection, assignment, etc.).
+We need to come up with a way to make it so that only the communication rule applies, so that we are guaranteed to perform the labelled transition, rather than a bunch of $\tau$ transitions.
+
+TODO: nothing prevents a process from making a labelled transition, then immediately making a $\tau$ transition without reacting.
+In addition to breaking synchronicity, this could potentially lead to, in the case of channel receives, variables remaining uninitialized...
+
+TODO: bullet rules
+
+\end{document}
