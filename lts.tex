@@ -51,8 +51,33 @@ We mark the scope for channel $A$ using $[P]_A$.
                                                       \{[A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot\} & \qquad \rho \vDash A? \end{matrix} \right. \\
     A?a & \Rightarrow \left\{ \begin{matrix} \{[A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot\} & \qquad \rho \vDash A! \\
                                              \{A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f]\} & \qquad \rho \vDash A? \end{matrix} \right. \\
-    C_1 \bullet C_2 & \Rightarrow \text{TODO}
+     %%% Bulleted receive, both passive
+    C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+    %%% Bulleted receive, one active
+     [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ ]& \qquad \rho \vDash C_1!, C_2?
+      \end{matrix} \right.  \\
+      %%% Bulleted send, both passive
+          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) ]& \; \rho \vDash C_1?, C_2? \\
+    %%% Bulleted send, one active
+    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+    \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ] & \; \rho \vDash C_1?, C_2!
+      \end{matrix} \right. \\
+      %%% Bulleted send/recieve, both passive
+          C_1!b \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+    %%% Bulleted send/recieve, receive active
+         [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
+    \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2? \\
+    %%% Builleted send/recieve, send active
+      [ ( [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1?, C_2!
+      \end{matrix} \right. 
 \end{align*}
+
+Above, the probe syntax only details when you have two channels combined together with a bullet.  If you are combining any more, they must be passive.  Their first two actions (a wait and a set) will execute in parallel with all others, then the second wait will be put into the combined AND wait, and their set will be done in parallel.
 
 We will use $\{A!\mathrm{b}\}$ and $\{A?a\}$ as shorthand for either translation of $A!\mathrm{b}$ and $A?a$, respectively.
 
