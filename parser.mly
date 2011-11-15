@@ -70,6 +70,7 @@ boolean:
     { BLit($1, true) }
   | FALSE
     { BLit($1, false) }
+    /* TODO(astory): probes on sends and receives */
   | MINUS UIDENT
     { let i, s = $2 in
       BProbe(m $1 i, s) }

@@ -34,6 +34,7 @@ module StrSet : Set.S with type elt = string
 type boolean = 
   | BVar of Info.t * variable
   | BLit of Info.t * bool
+  (* TODO(astory): probes on sends and receives *)
   | BProbe of Info.t * string
   | BAnd of Info.t * boolean * boolean
   | BOr of Info.t * boolean * boolean
