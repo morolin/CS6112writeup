@@ -34,7 +34,7 @@ let sprintf = Printf.sprintf
 let arg_spec =
   [ ("-debug", Arg.String Prefs.add_debug_flag, ": print debugging information") ]
 
-let usage prog = sprintf "Usage:\n    %s [options] F.fnet [F.fnet...]\n" prog
+let usage prog = sprintf "Usage:\n    %s [options] F.chp [F.chp...]\n" prog
 
 let anon_cell = ref []
 let anon_arg x = anon_cell := (x::!anon_cell)
@@ -47,14 +47,13 @@ let go' prog () =
         let _ = Lexer.setup fn in
         let lexbuf = Lexing.from_string (Util.read fn) in
         let ast =
-          try Parser.modl Lexer.main lexbuf with
+          try Parser.program Lexer.main lexbuf with
             | Parsing.Parse_error ->
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
                    (Info.string_of_t (Lexer.info lexbuf)))) in
-        let ast' = Checker.typecheck_modl ast in (* resolves overloaded ops *)
-        let ast'' = Conversion.convert_module ast' in
-        print_string (Py.format_modl ast'');
+        print_string (Pretty.string_of_program ast);
+		print_string "\n";
         ()
       end
     | _ ->

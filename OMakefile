@@ -63,16 +63,14 @@ OCAMLINCLUDES += $(FBASEDIR)
 # Sources
 
 FRENETIC_BASE_SOURCES[] = \
-    checker.mli checker.ml \
-    conversion.mli conversion.ml \
     id.mli id.ml \
-    overload.mli overload.ml \
     parser.mly lexer.mll \
     prefs.mli prefs.ml \
     pretty.mli pretty.ml \
-    py.mli py.ml\
     syntax.mli syntax.ml \
     toplevel.ml
+
+#checker.mli checker.ml \
 
 FRENETIC_SOURCES = $(file $(FRENETIC_BASE_SOURCES)) frenetic.ml
 

@@ -91,36 +91,11 @@ let error lexbuf s =
        s
        (L.lexeme lexbuf))
 
-let keywords = Hashtbl.create 31
+let keywords = Hashtbl.create 4
 let _ = 
   Data.List.iter (fun (kw,tok) -> Hashtbl.add keywords kw tok)
-    [ ("module", (fun i -> MODULE i))
-    ; ("let", (fun i -> LET i)) 
-    ; ("in", (fun i -> IN i))
-    ; ("fun", (fun i -> FUN i))
-    ; ("if", (fun i -> IF i))
-    ; ("then", (fun i -> THEN i))
-    ; ("else", (fun i -> ELSE i))
-    ; ("begin", (fun i -> BEGIN i))
-    ; ("end", (fun i -> END i))
-    ; ("and", (fun i -> AND i))
-    ; ("test", (fun i -> TEST i))
-    ; ("match", (fun i -> MATCH i))
-    ; ("with", (fun i -> WITH i))
-    ; ("error", (fun i -> ERROR i))
-    ; ("char", (fun i -> CHAR i))
-    ; ("string", (fun i -> STRING i))
-    ; ("int", (fun i -> INT i))
-    ; ("bool", (fun i -> BOOL i))
-    ; ("unit", (fun i -> UNIT i))
-    ; ("type", (fun i -> TYPE i))
-    ; ("of", (fun i -> OF i))
-    ; ("where", (fun i -> WHERE i))
-    ; ("forall", (fun i -> FORALL i))
-    ; ("lt", (fun i -> LT i))
-    ; ("leq", (fun i -> LEQ i))
-    ; ("gt", (fun i -> GT i))
-    ; ("geq", (fun i -> GEQ i))
+    [ ("and", (fun i -> AND i))
+    ; ("or", (fun i -> OR i))
     ; ("true", (fun i -> BOOLEAN(i,true)))
     ; ("false", (fun i -> BOOLEAN(i,false)))
     ]
@@ -140,51 +115,28 @@ rule main = parse
 | "*)"               { error lexbuf "this is not the end of a comment" }
 | "("                { LPAREN(info lexbuf) }
 | ")"                { RPAREN(info lexbuf) }
-| ";"                { SEMI(info lexbuf) }
-| "."                { DOT(info lexbuf) }
-| "&"                { AMPERSAND(info lexbuf) }
-| "*"                { STAR(info lexbuf) }
+| "true"             { TRUE(info lexbuf) }
+| "false"            { FALSE(info lexbuf) }
+| "~"                { TILDE(info lexbuf) }
 | "-"                { MINUS(info lexbuf) }
-| "_"                { UNDERLINE(info lexbuf) }
-| "$"                { DOLLAR(info lexbuf) }
-| "+"                { PLUS(info lexbuf) }
-| "!"                { BANG(info lexbuf) }
-| "->"               { ARROW(info lexbuf) }
-| "=>"               { EQARROW(info lexbuf) }
-| "<=>"              { DEQARROW(info lexbuf) }
-| "<->"              { DARROW(info lexbuf) }
-| "|"                { BAR(info lexbuf) }
-| "="                { EQUAL(info lexbuf) }
-| "{"                { LBRACE(info lexbuf) }
-| "}"                { RBRACE(info lexbuf) }
-| "#"                { HASH(info lexbuf) }
+| "and"              { AND(info lexbuf) }
+| "or"               { OR(info lexbuf) }
+| ":="               { GETS(info lexbuf) }
+| "*"                { STAR(info lexbuf) }
+| ";"                { SEQ(info lexbuf) }
+| "||"               { PAR(info lexbuf) }
+| "skip"             { SKIP(info lexbuf) }
+| "[]"               { THICKBAR(info lexbuf) }
+| "|"                { THINBAR(info lexbuf) }
 | "]"                { RBRACK(info lexbuf) }
 | "["                { LBRACK(info lexbuf) }
-| "<"                { LANGLE(info lexbuf) }
-| ">"                { RANGLE(info lexbuf) }
-| ","                { COMMA(info lexbuf) }
-| ":"                { COLON(info lexbuf) }
-| "^"                { HAT(info lexbuf) }
-| "~"                { TILDE(info lexbuf) }
-| "\\"               { BACKSLASH(info lexbuf) }
+| "->"               { ARROW(info lexbuf) }
+| "!"                { BANG(info lexbuf) }
 | "?"                { QMARK(info lexbuf) }
-| "\""               { let i1 = info lexbuf in 
-                       let i2,s = string "" lexbuf in 
-                       let i = Info.imerge i1 i2 in 
-                       STR(i,s) }
-
-| "'" ([^'\''] as c) "'" { 
-    CHARACTER(info lexbuf,c) 
-}
-
-| "'\\" { 
-  let c = escape [("'","'")] lexbuf in 
-  character c lexbuf 
-}
-
-| '\'' (id_char_first id_char_rest* as ident) { 
-  TVIDENT(info lexbuf, ident)
-}
+| "."                { DOT(info lexbuf) }
+| "`a"               { CHANACK(info lexbuf) }
+| "`t"               { CHANTRUE(info lexbuf) }
+| "`f"               { CHANFALSE(info lexbuf) }
 | id_char_first id_char_rest* as ident { 
   try let kw = Hashtbl.find keywords ident in
       kw (info lexbuf)
@@ -194,38 +146,10 @@ rule main = parse
     else 
       LIDENT (info lexbuf, ident) 
 }
-| (uid_char id_char_rest* ".") id_char_first id_char_rest* as qident {
-    let n = String.index qident '.' in 
-    let s1 = String.sub qident 0 n in 
-    let s2 = String.sub qident (succ n) (String.length qident - n - 1) in 
-    (QIDENT(info lexbuf,s1,s2))
-}
-| int_char+ as integ { 
-  INTEGER(info lexbuf, int_of_string integ) 
-}
-| (int_char* "." int_char+) as flot {
-  FLOAT(info lexbuf, float_of_string flot) 
-} 
 | newline            { newline lexbuf; main lexbuf }
 | eof                { EOF(info lexbuf) } 
 | "(*"               { comment lexbuf; main lexbuf }
 | _                  { error lexbuf "unknown token" }
-
-and string acc = parse
-| "\\"          { let s = escape [("\"","\"");("'","'")] lexbuf in 
-                  string (acc ^ s) lexbuf }
-| "\""          { (info lexbuf,acc) }
-| newline ([' ' '\t']* "|")? 
-                { newline lexbuf; 
-                  string (acc ^ "\n") lexbuf}
-| eof           { error lexbuf "unmatched '\"'"}
-| _             { string (acc ^ L.lexeme lexbuf) lexbuf }
-
-and character acc = parse 
-  | "'"         { if String.length acc <> 1 then error lexbuf "unmatched '''"
-                  else CHARACTER(info lexbuf,acc.[0]) }
-
-  | _           { error lexbuf "unmatched '''" }
 
 and escape el = parse
 | "\\"          { "\\" }
