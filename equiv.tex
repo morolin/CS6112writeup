@@ -1,0 +1,203 @@
+\documentclass[times, 10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{fullpage}
+\usepackage{stmaryrd}
+\usepackage{tikz}
+\usetikzlibrary{arrows}
+
+\title{CHP equivalences under the LTS}
+\author{Stephen Longfield}
+
+\begin{document}
+
+\maketitle
+
+\section{Introduction}
+
+In this document, we discuss different kinds of bisimulation equivalences, and
+how those equivalences can be used to show property preservation of many
+different common program transformations.
+
+The typical design process for an asynchronous circuit takes a high-level,
+mostly synchronous description of a computation, which is broken down into a
+highly parallel description through a long series of transformations. While many
+of these transformations have been studied under other forms of equivalence, as
+far as the authors are aware, no study using bisimilarity-based equivalences has
+ever been completed.
+ 
+\section{Strong Bisimulation}
+
+Strong bisimulation is the strongest form of equivalence that we will discuss.
+For two programs to be strongly bisimilar means that they must both be able to
+simulate each other's labeled and unlabeled transitions. As this cannot allow
+for any new communication actions or new internal actions, the amount of
+parallelism that can be added is limited.
+
+\subsection{Selection Weakening}
+
+In the CHP language, there are two kinds of selection statement, one of which
+requires the designer to guarantee that all of the guard statements are mutually
+exclusive, and one which does not. They are known, respectively, as
+deterministic and non-deterministic selection statements. In both cases, if none
+of the guards are true (and it is not a repetitive selection statement), they
+will block. In the case of a repeated selection statement, if none of the
+guards are true, the program will skip over this statement. This behavior allows
+repeated selection statements to eventually terminate.
+
+The only difference between the two is that in the event that more than one
+guard is true, the nondeterministic selection statement will choose one of them.
+Therefore, it is always the case that a deterministic selection statement can be
+replaced with a nondeterministic selection statement without altering the LTS.
+
+For example, the CHP program:
+
+\begin{align*}
+&*[(C?c || D?d); \\
+& \;\;\;\;\;[ c \rightarrow A!d \\
+& \;\;\;\;\;\talloblong \lnot c \rightarrow B!d \\
+& \;\;\;]] \\
+\end{align*}
+
+Can be replaced by:
+
+\begin{align*}
+&*[(C?c || D?d); \\
+& \;\;\;\;\;[ c \rightarrow A!d \\
+& \;\;\;\;\;| \lnot c \rightarrow B!d \\
+& \;\;\;]] \\
+\end{align*}
+
+Without altering the LTS, and thereby preserving strong bisimilarity.
+
+This transformation is somewhat impractical, as a nondeterministic selection
+statement corresponds to additional circuit elements when synthesized.
+
+\subsection{Internal Renaming}
+
+Additionally, under strong bisimulation, we are allowed to rename any internal
+channels and variables, as long as we are consistent in doing so.
+
+This is trivially true, as all actions on internal channels and variables are
+only exposed to the LTS as $\tau$ actions, and therefore do not affect
+bisimilarity. 
+
+\section{Weak Bisimulation}
+
+Weak bisimulation is a form of bisimulation where only the labeled transitions
+are considered.
+
+\subsection{Process Decomposition}
+
+Process decomposition is a common parallelism-increasing CHP transformation.  In
+general, it involves taking programs of the form:
+
+\[
+...;S;...
+\]
+
+And decomposing them into ones of the form:
+
+\[
+(...;C;...) || *[[\bar{C} \rightarrow S; C]]
+\]
+
+Where C is a dataless channel action on a fresh channel (directionality has been
+omitted, as dataless sends and receives are symmetric modulo variable renaming).
+
+This transformation will only add a single $\tau$ action, as the channel C has
+been explicitly declared to be fresh.  However, this transformation will not add
+any additional parallelism, as all of the sequencing will be preserved. If we
+look at the labeled transition system of, and it consists only of $\tau$
+actions, then we can make an additional transformation:
+
+\[
+(...;C;...) || *[[\bar{C} \rightarrow C; S]]
+\]
+
+And now we have increased parallelism, as the statements in $S$ have been
+removed from the sequential execution path, and placed on a parallel one.
+
+To avoid shared variables, it may be the case that several statements must be decomposed at once, such as in:
+
+\[
+*[S_1; x := x + 1; S_2; [ c \rightarrow x := 0 [] \lnot c \rightarrow \texttt{skip} ]; S_3; A!x ] 
+\]
+
+Knowing that none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can move all of the actions on $x$ into a separate process resulting in:
+
+\begin{align*}
+& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& || *[[\;\bar{I} \rightarrow x := x + 1; I \\
+&\;\;\;\;\;\;[] \bar{J} \rightarrow x := 0; J \\
+&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&]]
+\end{align*}
+
+Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has been omitted. This process can be re-ordered into:
+
+\begin{align*}
+& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& || *[[\;\bar{I} \rightarrow I; x := x + 1 \\
+&\;\;\;\;\;\;[] \bar{J} \rightarrow J; x := 0 \\
+&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&]]
+\end{align*}
+
+As both of these systems only have one externally-visible channel action (on $A$), their labeled transition systems will be the same modulo additional $\tau$ transitions from the $I$, $J$, and $K$ internal channel actions. Note that we do need to know that $x$ does not occur in $S_1$, $S_2$ or $S_3$ for this to hold, as $c$ must not have any dependencies on $x$.
+
+\subsection{Slack Elasticity}
+
+In many designs, it may be necessary to add additional buffering to channels at a very late stage of design. Designs where adding buffering will not change the behavior are known as slack-elastic. Note that while you can always add more buffering to a slack-elastic design, you cannot always remove it. Specifically, one cannot always remove buffering from a channel, as that may introduce deadlock.
+
+\subsubsection{Extending Slack on Non-Zero Slack Channels}
+
+Suppose process $P_1$ and $P_2$ are communicating over some FIFO-buffered channel A.  Adding additional buffering into this channel is tantamount to adding an additional $\tau$ action into the LTS.  Therefore, the system with the original channel A bisimulates the one with the extended channel. 
+
+\subsubsection{Replacing Blocking Sends with Asynchronous Sends}
+
+A blocking send is one which will not proceed until its receiving side is ready. An asynchronous send is one that completes immediately, without waiting for the receive to be ready. The value that was to be send on the channel is then instead stored in a buffer, typically considered to be infinite size for the sake of simplicity.
+
+\begin{enumerate}
+
+\item Deterministic Programs
+
+Intuitively, the biggest change that comes with replacing blocking sends with asynchronous sends is that the receipt order and mutual exclusivity is no longer guaranteed.  For example, if we had a program of the form:
+
+\begin{align*}
+&*[A!\top; B!\!\perp] \\
+&|| *[[ \bar{A} \rightarrow A?y \\
+&\;\;\;\;\;\; [] \bar{B} \rightarrow B?y \\
+&\;\;]; C!y \\
+&]
+\end{align*}
+
+And $A$ and $B$ are blocking, unbuffered channels, then the rules of the deterministic selection statement will be obeyed, and this will behave as expected (sending alternatively $\top$ and $\perp$ on channel $C$).  However, if $A$ and $B$ are replaced with asynchronous sends, their probes are no longer mutually exclusive, and the behavior will be undefined. 
+
+If a program does not have probes, one cannot require mutual exclusivity of channel actions, (as this can only be observed with probes), and therefore, is slack elastic.
+
+\textbf{XXX}: This doesn't actually prove it using weak bisimulation.
+
+\item Maximally Non-Deterministic Programs
+
+As adding asynchronous channels can only increase the amount of non-determinism in the ordering, if a system is already maximally-nondeterministic, then adding asynchronous channels will not change anything.
+
+As probes are the only construct that can observe mutually exclusivity, we consider a system to be maximally non-deterministic if probes only exist in the guards of nondeterministic selection statements, and for every such selection statement there exists a trace where all of the guards are true.
+
+\textbf{XXX}: This doesn't actually prove it using weak bisimulation. 
+
+\end{enumerate}
+
+%\section{Weak Barbed Bisimulation}
+
+%As defined in "A Hierarchy of Equivalences of Asynchronous Calculi" by Fournet and Conthier:
+
+% In Intro claim to show that barbed equivalence is equal to labeled bisimilarity
+% barbs don't separate x<y> from x<z> in the pi calc
+% may testing -- preorder relation -- implementation can rule out some traces, but not exhibit traces whose behavior is not captured by their spec
+%	Says nothing of the presence of suitable behaviors
+
+%Weak barbed bisimulation is
+
+\end{document}
