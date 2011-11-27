@@ -62,8 +62,7 @@ let dirset_of_list li =
 let rec fold_bullet = function
   | CSend(_, c, _) -> [(Send, c)]
   | CRecv(_, c, _) -> [(Receive, c)]
-  (* TODO(astory): get better runtime on this *)
-  | CBullet(_, c1, c2) -> (fold_bullet c1) @ (fold_bullet c2)
+  | CBullet(_, c1, c2) -> List.rev_append (fold_bullet c1) (fold_bullet c2)
 
 let rec b_gather_assertions = function
   | BVar(_, _) -> AssertionSet.empty
@@ -117,7 +116,7 @@ let gather_assertions = p_gather_assertions
 (* Functions to build the implication graph *)
 let rec enum_pairs = function
   | [] -> []
-  | x::xs -> (List.map (fun y -> (x, y)) xs) @ (enum_pairs xs)
+  | x::xs -> List.rev_append (List.map (fun y -> (x, y)) xs) (enum_pairs xs)
 
 let add_bullet_pair g ((a1, s1), (a2, s2)) =
   match (a1, a2) with
@@ -161,16 +160,25 @@ let add_assertion g = function
 let build_graph assertions =
   List.fold_left add_assertion G.empty assertions
 
-let check_no_conflicts component =
+let get_conflicts component =
   let elems = dirset_of_list component in
   let validate = fun (b, s) ->
-    if DirSet.mem (not b, s) elems then
-      (* TODO(astory): make more explanatory *)
-      raise (DirectionException(
-	           "Cannot determine direction for channel " ^ s ^ "."))
-    else ()
+    b && DirSet.mem (not b, s) elems
   in
-  List.iter validate component
+  List.filter validate component
+    
+let validate components =
+  let conflicts = List.concat (List.map get_conflicts components) in
+  if conflicts != [] then
+    let conflicts' = List.map (fun (_, s) -> s) conflicts in
+	let conflicts'' = List.fast_sort compare conflicts' in
+    let conflicts_s = String.concat ", " conflicts'' in
+	let s = if List.length conflicts > 1 then "s " else " " in
+    (* TODO(astory): make more explanatory *)
+    raise (DirectionException("Cannot determine direction for channel" ^ s ^
+                              conflicts_s ^ "."))
+  else
+    ()
 
 let build_condensed_graph components =
   let components' = List.map dirset_of_list components in
@@ -181,7 +189,7 @@ let label_channels program =
   let assertions = AssertionSet.elements (gather_assertions program) in
   let graph = build_graph assertions in
   let components = GComp.scc_list graph in
-  List.iter check_no_conflicts components;
+  validate components;
   let cond = build_condensed_graph components in
   (* TODO: extract channel directions from topological sort of components *)
   ChanMap.empty

@@ -70,11 +70,11 @@ boolean:
     { BLit($1, true) }
   | FALSE
     { BLit($1, false) }
-  | POUND QMARK UIDENT
-    { let i, s = $3 in
+  | POUND UIDENT QMARK
+    { let i, s = $2 in
       BProbeRecv(m $1 i, s) }
-  | POUND BANG UIDENT
-    { let i, s = $3 in
+  | POUND UIDENT BANG
+    { let i, s = $2 in
       BProbeSend(m $1 i, s) }
   | boolean AND boolean
     { let i = mb $1 $3 in
