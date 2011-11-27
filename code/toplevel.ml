@@ -29,6 +29,8 @@
 (* $Id$ *)
 (******************************************************************************)
 
+exception Exception of string
+
 let sprintf = Printf.sprintf
 
 let arg_spec =
@@ -52,9 +54,19 @@ let go' prog () =
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
                    (Info.string_of_t (Lexer.info lexbuf)))) in
-        Static.nofires ast;
+        (try
+          Static.nofires ast
+        with Static.TypeException(i, s) ->
+          print_string (s ^ " at " ^ Info.string_of_t i ^ "\n");
+          exit 2);
+        (try
+          let _ = Direction.label_channels ast in
+          ()
+        with Direction.DirectionException(s) ->
+          print_string (s ^ "\n");
+          exit 2);
         print_string (Pretty.string_of_program ast);
-		print_string "\n";
+        print_string "\n";
         ()
       end
     | _ ->

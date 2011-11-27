@@ -82,7 +82,7 @@ let rec check_program = function
                          (List.map string_of_sv
                          (VarSet.elements variables))
         in
-        let error = "Fire hazard:  " ^ variables_s in
+        let error = "Fire hazard in " ^ variables_s in
         raise (TypeException(i, error))
       else
         (union2 r1 r2, union2 w1 w2)
