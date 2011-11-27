@@ -118,7 +118,7 @@ rule main = parse
 | "true"             { TRUE(info lexbuf) }
 | "false"            { FALSE(info lexbuf) }
 | "~"                { TILDE(info lexbuf) }
-| "-"                { MINUS(info lexbuf) }
+| "#"                { POUND(info lexbuf) }
 | "and"              { AND(info lexbuf) }
 | "or"               { OR(info lexbuf) }
 | ":="               { GETS(info lexbuf) }

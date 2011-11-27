@@ -59,7 +59,8 @@ and format_boolean = function
       format_variable var;
       msg "@]"
   | BLit(_, b) -> msg "@[%b@]" b
-  | BProbe(_, channel) -> msg "@[-%s@]" channel
+  | BProbeRecv(_, channel) -> msg "@[#?%s@]" channel
+  | BProbeSend(_, channel) -> msg "@[#!%s@]" channel
   | BAnd(_, b1, b2) -> msg "@[";
       format_boolean b1;
       msg "@ and@ ";

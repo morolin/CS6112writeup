@@ -47,7 +47,7 @@ let syntax_error i s =
 %}
 %token <Info.t> EOF
 %token <Info.t> LPAREN RPAREN
-%token <Info.t> TRUE FALSE TILDE MINUS AND OR
+%token <Info.t> TRUE FALSE TILDE POUND AND OR
 %token <Info.t> GETS STAR SEQ PAR SKIP
 %token <Info.t> LBRACK RBRACK THICKBAR THINBAR ARROW
 %token <Info.t> BANG QMARK DOT
@@ -70,10 +70,12 @@ boolean:
     { BLit($1, true) }
   | FALSE
     { BLit($1, false) }
-    /* TODO(astory): probes on sends and receives */
-  | MINUS UIDENT
-    { let i, s = $2 in
-      BProbe(m $1 i, s) }
+  | POUND QMARK UIDENT
+    { let i, s = $3 in
+      BProbeRecv(m $1 i, s) }
+  | POUND BANG UIDENT
+    { let i, s = $3 in
+      BProbeSend(m $1 i, s) }
   | boolean AND boolean
     { let i = mb $1 $3 in
       BAnd(i, $1, $3) }
@@ -90,15 +92,6 @@ variable:
   | LIDENT
     { let i, s = $1 in
       VVar(i, s) }
-  | UIDENT CHANACK
-    { let i, s = $1 in
-      VAck(m i $2, s) }
-  | UIDENT CHANTRUE
-    { let i, s = $1 in
-      VTrue(m i $2, s) }
-  | UIDENT CHANFALSE
-    { let i, s = $1 in
-      VFalse(m i $2, s) }
 
 program:
   | variable GETS boolean

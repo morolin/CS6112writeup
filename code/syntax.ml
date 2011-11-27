@@ -34,7 +34,8 @@ exception UnimplementedException
 type boolean = 
   | BVar of Info.t * variable
   | BLit of Info.t * bool
-  | BProbe of Info.t * string
+  | BProbeRecv of Info.t * string
+  | BProbeSend of Info.t * string
   | BAnd of Info.t * boolean * boolean
   | BOr of Info.t * boolean * boolean
   | BNot of Info.t * boolean
@@ -74,7 +75,8 @@ and channel =
 let rec info_of_boolean b = match b with
   | BVar(i,_) -> i
   | BLit(i,_) -> i
-  | BProbe(i,_) -> i
+  | BProbeRecv(i,_) -> i
+  | BProbeSend(i,_) -> i
   | BAnd(i,_,_) -> i
   | BOr(i,_,_) -> i
   | BNot(i,_) -> i
