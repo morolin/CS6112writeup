@@ -2,3 +2,12 @@
 *.log
 *.pdf
 *.sw*
+*.cmi
+*.cmx
+*.annot
+*.output
+*.omc
+*.omakedb*
+*.a
+*.cmxa
+*.opt
