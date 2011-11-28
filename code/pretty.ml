@@ -78,7 +78,7 @@ and format_boolean = function
 let rec format_program = function
   | PGets(_, var, b) -> msg "@[";
       format_variable var;
-      msg "@ := @ ";
+      msg "@ :=@ ";
       format_boolean b;
       msg "@]"
   | PSelect(_, s) -> format_select s

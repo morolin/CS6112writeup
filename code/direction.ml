@@ -1,4 +1,9 @@
-(* Copyright Alec Story, 2011 *)
+(* Copyright Alec Story, 2011
+ * 
+ * This implements the algorithm described at
+ * http://en.wikipedia.org/wiki/2-SAT#Strongly_connected_components, which is
+ * from Aspvall, Plass & Tarjan (1979)
+ *)
 open Syntax
 open Graph
 
@@ -6,34 +11,22 @@ exception DirectionException of string
 
 module ChanMap = Map.Make (String)
 module StringSet = Set.Make (String)
-module DirSet = Set.Make (
-  struct
-    let compare = compare
-    type t = bool * string
-  end)
-
-(* module for our main graph *)
-module G = Persistent.Digraph.Concrete
-  (struct
-    type t = bool * string
-    let equal = (=)
-    let hash = Hashtbl.hash
-    let compare = compare
-  end)
-module GComp = Components.Make (G)
-
-(* Module for condensed graphs *)
-module Cond = Persistent.Digraph.Concrete
-  (struct
-    type t = DirSet.t
-    let equal = (=)
-    let hash = Hashtbl.hash
-    let compare = compare
-  end)
 
 (* Direction of the sender of the channel *)
 type direction = Passive | Active
+type node = direction * string
 type dirmap = direction ChanMap.t
+
+let invert = function
+  | Passive -> Active
+  | Active -> Passive
+
+let string_of_direction = function 
+  | Passive -> "Passive"
+  | Active -> "Active"
+
+let string_of_node = function
+  | (direction, name) -> name ^ ": " ^ (string_of_direction direction)
 
 (** Types to track impositions on the directions of channels:
   * probes force a channel to be a particular direction, since they can only
@@ -52,6 +45,37 @@ module AssertionSet = Set.Make(
     let compare = compare
     type t = assertion
   end )
+module DirSet = Set.Make (
+  struct
+    let compare = compare
+    type t = node
+  end)
+module VarMap = Map.Make (
+  struct
+    let compare = compare
+    type t = node
+  end)
+
+(* module for our main graph *)
+module G = Persistent.Digraph.Concrete (
+  struct
+    type t = node
+    let equal = (=)
+    let hash = Hashtbl.hash
+    let compare = compare
+  end)
+module GComp = Components.Make (G)
+
+(* Module for condensed graphs *)
+module Cond = Persistent.Digraph.Concrete (
+  struct
+    type t = node list
+    let equal = (=)
+    let hash = Hashtbl.hash
+    let compare = compare
+  end)
+
+module Topo = Topological.Make (Cond)
 
 let dirset_of_list li =
   List.fold_left (fun set elem -> DirSet.add elem set) DirSet.empty li
@@ -116,43 +140,43 @@ let gather_assertions = p_gather_assertions
 (* Functions to build the implication graph *)
 let rec enum_pairs = function
   | [] -> []
-  | x::xs -> List.rev_append (List.map (fun y -> (x, y)) xs) (enum_pairs xs)
+  | x::xs -> List.rev_append (List.rev_map (fun y -> (x, y)) xs) (enum_pairs xs)
 
 let add_bullet_pair g ((a1, s1), (a2, s2)) =
   match (a1, a2) with
   (* To build the graph, proceed case by case:
      Rx . Ry:
-       Only one may be an active receiver, so at most one can be false,
+       Only one may be an active receiver, so at most one can be Passive,
        x V y : !x => y and !y => x *)
   | (Receive, Receive) ->
-    let g' = G.add_edge g  (false, s1) (true, s2) in
-    G.add_edge          g' (false, s2) (true, s1)
+    let g' = G.add_edge g  (Passive, s1) (Active, s2) in
+    G.add_edge          g' (Passive, s2) (Active, s1)
   (* Sx . Sy:
-       Only one may be an active sender, so at most one can be true,
+       Only one may be an active sender, so at most one can be Active,
        !x V !y : x => !y and y => !x *)
   | (Send, Send) ->
-    let g' = G.add_edge g  (true, s1) (false, s2) in
-    G.add_edge          g' (true, s2) (false, s1)
+    let g' = G.add_edge g  (Active, s1) (Passive, s2) in
+    G.add_edge          g' (Active, s2) (Passive, s1)
   (* Rx . Sy:
        If x is an active receiver, y must be a passive sender, so they must have
        the same directionality, or both be passive
        x V !y : !x => !y and y => x *)
   | (Receive, Send) ->
-    let g' = G.add_edge g  (false, s1) (false, s2) in
-    G.add_edge          g' (true, s2) (true, s1)
+    let g' = G.add_edge g  (Passive, s1) (Passive, s2) in
+    G.add_edge          g' (Active, s2) (Active, s1)
   (* Sx . Ry:
        If y is an active receiver, x must be a passive sender, so they must have
        the same directionality, or both be passive
        !x V y : x => y and !y => !x *)
   | (Send, Receive) ->
-    let g' = G.add_edge g  (true, s1) (true, s2) in
-    G.add_edge          g' (false, s2) (false, s1)
+    let g' = G.add_edge g  (Active, s1) (Active, s2) in
+    G.add_edge          g' (Passive, s2) (Passive, s1)
 
 let add_assertion g = function
   | ProbeRecv(s) -> (* !s V !s : s => !s *)
-      G.add_edge g (true, s) (false, s)
+      G.add_edge g (Active, s) (Passive, s)
   | ProbeSend(s) -> (* s V s : !s => s *)
-      G.add_edge g (false, s) (true, s)
+      G.add_edge g (Passive, s) (Active, s)
   | Bullet(l) ->
      let pairs = enum_pairs l in
      List.fold_left add_bullet_pair g pairs
@@ -162,34 +186,59 @@ let build_graph assertions =
 
 let get_conflicts component =
   let elems = dirset_of_list component in
+  (* We only need to check for one direction because we only look in strongly
+   * connected components:  one direction implies the other. *)
   let validate = fun (b, s) ->
-    b && DirSet.mem (not b, s) elems
+    b == Active && DirSet.mem (Passive, s) elems
   in
   List.filter validate component
     
 let validate components =
-  let conflicts = List.concat (List.map get_conflicts components) in
+  let conflicts = List.concat (List.rev_map get_conflicts components) in
   if conflicts != [] then
-    let conflicts' = List.map (fun (_, s) -> s) conflicts in
-	let conflicts'' = List.fast_sort compare conflicts' in
+    let conflicts' = List.rev_map (fun (_, s) -> s) conflicts in
+  let conflicts'' = List.fast_sort compare conflicts' in
     let conflicts_s = String.concat ", " conflicts'' in
-	let s = if List.length conflicts > 1 then "s " else " " in
+  let s = if List.length conflicts > 1 then "s " else " " in
     (* TODO(astory): make more explanatory *)
     raise (DirectionException("Cannot determine direction for channel" ^ s ^
                               conflicts_s ^ "."))
   else
     ()
 
-let build_condensed_graph components =
-  let components' = List.map dirset_of_list components in
-  (* TODO(astory): finish *)
-  Cond.empty
+let add_component_to_map map component =
+  List.fold_left (fun m elem -> VarMap.add elem component m) map component
+
+let build_map components =
+  List.fold_left add_component_to_map VarMap.empty components
+
+let convert_edge (map : node list VarMap.t) (v1 : node) (v2 : node) (g : Cond.t) : Cond.t =
+  Cond.add_edge g (VarMap.find v1 map) (VarMap.find v2 map)
+
+let build_condensed_graph components old_graph =
+  let component_map = build_map components in
+
+  let g = List.fold_left Cond.add_vertex Cond.empty components in
+  G.fold_edges (convert_edge component_map) old_graph g
+
+(* For each component, if it's not already determined, add the direction from
+ * this node *)
+let assign_var map = function
+  | (direction, variable) ->
+    if ChanMap.mem variable map then
+      map
+    else
+      (* TODO(astory): why do we need invert, and is it valid? *)
+      ChanMap.add variable (invert direction) map
+
+(* Add each node of the component *)
+let assign_component component map =
+  List.fold_left assign_var map component
 
 let label_channels program = 
   let assertions = AssertionSet.elements (gather_assertions program) in
   let graph = build_graph assertions in
   let components = GComp.scc_list graph in
   validate components;
-  let cond = build_condensed_graph components in
-  (* TODO: extract channel directions from topological sort of components *)
-  ChanMap.empty
+  let cond = build_condensed_graph components graph in
+  Topo.fold assign_component cond ChanMap.empty

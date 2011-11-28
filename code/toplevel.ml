@@ -41,6 +41,12 @@ let usage prog = sprintf "Usage:\n    %s [options] F.chp [F.chp...]\n" prog
 let anon_cell = ref []
 let anon_arg x = anon_cell := (x::!anon_cell)
 
+let swap (x, y) = (y, x)
+let labels_to_string labels =
+  let assignments = List.map (fun x -> Direction.string_of_node (swap x))
+                    (Direction.ChanMap.bindings labels) in
+  String.concat "\n" ("Channel assignments: " :: assignments)
+
 let go' prog () =
   Arg.parse arg_spec anon_arg (usage prog);
   match !anon_cell with
@@ -60,13 +66,15 @@ let go' prog () =
           print_string (s ^ " at " ^ Info.string_of_t i ^ "\n");
           exit 2);
         (try
-          let _ = Direction.label_channels ast in
+          let labels = Direction.label_channels ast in
+          print_string (Pretty.string_of_program ast);
+          print_string "\n";
+          print_string (labels_to_string labels);
+          print_string "\n";
           ()
         with Direction.DirectionException(s) ->
           print_string (s ^ "\n");
           exit 2);
-        print_string (Pretty.string_of_program ast);
-        print_string "\n";
         ()
       end
     | _ ->
