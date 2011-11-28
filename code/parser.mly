@@ -133,9 +133,13 @@ det_select:
       SDRecur(i, $1, $3, $5) }
 
 nondet_select:
-  | boolean ARROW program
-    { let i = m (info_of_boolean $1) (info_of_program $3) in
-      SNBase(i, $1, $3) }
+  (* The base case here is larger to prevent a reduce/reduce conflict over
+   * [b -> p], so this way, [b -> p] will always be det_select *)
+  | boolean ARROW program THINBAR boolean ARROW program
+    { let i = m (info_of_boolean $5) (info_of_program $7) in
+      let base = SNBase(i, $5, $7) in
+	  let i' = m (info_of_boolean $1) (info_of_program $3) in
+	  SNRecur(i', $1, $3, base) }
   | boolean ARROW program THINBAR nondet_select
     { let i = m (info_of_boolean $1) (info_of_select_nondet $5) in
       SNRecur(i, $1, $3, $5) }
