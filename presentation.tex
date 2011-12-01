@@ -171,7 +171,6 @@ Norris Xu
 \item Encode communication actions in a four-phase variable handshake
 \end{itemize}
 \end{frame}
-
 \begin{frame}
 \frametitle{Value send: $X!\textrm{b}$}
 \begin{itemize}
@@ -181,7 +180,6 @@ Norris Xu
      \lnot \textrm{b} \rightarrow X_f := \texttt{true}]; \\
     & \hspace{.5cm} [X_a]; (X_t := \texttt{false} || X_f := \texttt{false}); [\lnot X_a]
 \end{align*}
-
 \item Passive:
 \begin{align*}
     & [X_a]; [\textrm{b} \rightarrow X_t := \texttt{true} \talloblong
@@ -190,20 +188,10 @@ Norris Xu
 \end{align*}
 \end{itemize}
 \end{frame}
-
 \begin{frame}
 \frametitle{Variable receive: $X?y$}
 \begin{itemize}
 \item Active:
-\begin{align*}
-    & [X_t \rightarrow y := \texttt{true} \talloblong
-       X_f \rightarrow y := \texttt{false}]; \\
-    & \hspace{.5cm} X_a := \texttt{true};
-      [\lnot X_t \land \lnot X_f];
-      X_a := \texttt{false};
-\end{align*}
-
-\item Passive:
 \begin{align*}
     & X_a := \texttt{true};
      [X_t \rightarrow y := \texttt{true} \talloblong
@@ -211,9 +199,16 @@ Norris Xu
     & \hspace{.5cm} X_a := \texttt{false};
       [\lnot X_t \land \lnot X_f]
 \end{align*}
+\item Passive:
+\begin{align*}
+    & [X_t \rightarrow y := \texttt{true} \talloblong
+       X_f \rightarrow y := \texttt{false}]; \\
+    & \hspace{.5cm} X_a := \texttt{true};
+      [\lnot X_t \land \lnot X_f];
+      X_a := \texttt{false};
+\end{align*}
 \end{itemize}
 \end{frame}
-
 \begin{frame}
 \frametitle{Channel probe: $\overline{C?}$ or $\overline{C!}$}
 \begin{itemize}
@@ -222,7 +217,6 @@ Norris Xu
 \item $\overline{C!} \mapsto (X_t \lor X_f)$
 \end{itemize}
 \end{frame}
-
 \begin{frame}
 \frametitle{Simultaneous Composition}
 \begin{itemize}
@@ -294,15 +288,131 @@ Norris Xu
 \item Just forbid parallel compositions where the set of variables written to on one side is not disjoint from the set of variables on the other side
 \pause
 \item Also, check bullets to ensure that no variable or channel appears more than once
+\pause
+\item This also enforces end-to-end-ness of channels.
 \end{itemize}
 \end{frame}
 \section{Formal Semantics and LTS}
-\begin{frame}
-Like, black tie formal.
-\end{frame}
 \subsection{CHP Grammar}
 \begin{frame}
-\frametitle{CHP Grammar}
+    \frametitle{CHP Grammar}
+    \begin{align*}
+        \ell & ::= \mathtt{true} \; | \mathtt{false} \\
+        \mathrm{b} & ::= a \; | \; \ell \; | \; {\color{red} \overline{A!}} \; | \; {\color{red} \overline{A?}} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
+        \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; {\color{red} C} \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
+        \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+        {\color{red} \mathrm{C}} & {\color{red} ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2}
+    \end{align*}
+\end{frame}
+\begin{frame}
+    New to CHP:
+    \begin{itemize}
+        \item Channels $A$
+        \item Channel actions $A!\mathrm{b}, A?a$
+        \item Channel probes $\overline{A!}, \overline{A?}$
+        \item \color{lightgray} Bullet combinator $C_1 \bullet C_2$
+    \end{itemize}
+\end{frame}
+\begin{frame}
+    \frametitle{Example}
+    Channel splitter:
+    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+\end{frame}
+\subsection{CHP LTS}
+\begin{frame}
+    \frametitle{CHP LTS}
+    \tiny
+    $$
+        % skip, assign, sequential and parallel composition rules
+        \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+        \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma' \rangle} \qquad
+        \frac{\langle Q, \sigma \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma' \rangle} $$$$
+        \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+        \frac{}{\langle \mathtt{skip} || P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+        \frac{}{\langle P || \mathtt{skip}, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b} = \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma[a = \ell] \rangle} \qquad
+        % selection rules
+        \frac{\sigma \models \mathrm{b}_i = \mathtt{true}} {\langle [\mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+        \frac{\sigma \models \mathrm{b}_1 = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \mathtt{false} \; \wedge \mathrm{b}_i = \mathtt{true} \wedge \mathrm{b}_{i+1} = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \mathtt{false}} {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+        \frac{\sigma \models b_1 = \mathtt{false} \wedge \ldots \wedge b_n = \mathtt{false}}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma\rangle } \qquad
+        \frac{\sigma \models b_1 = \mathtt{false} \wedge \ldots \wedge b_n = \mathtt{false}}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma \rangle } $$$$
+    %   \frac{\langle S, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle}{\langle *S, \sigma \rangle \xrightarrow{\tau} \langle P;*S, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b}_1 = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \mathtt{false} \wedge \mathrm{b}_i = \mathtt{true} \wedge \mathrm{b}_{i+1} = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \mathtt{false}} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+        \frac{\sigma \models \mathrm{b}_i = \mathtt{true}} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
+    $$
+\end{frame}
+\begin{frame}
+    \small
+    $$
+        % communication rules
+        \frac{\sigma \models \mathrm{b} = \mathtt{true}}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\mathtt{true}} \langle \mathtt{skip}, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b} = \mathtt{false}}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\mathtt{false}} \langle \mathtt{skip}, \sigma \rangle} $$$$
+        \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \mathtt{true}} \langle \mathtt{skip}, \sigma[a = \mathtt{true}] \rangle} $$$$
+        \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \mathtt{false}} \langle \mathtt{skip}, \sigma[a = \mathtt{false}] \rangle} $$$$
+        \frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
+        \frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+        %\frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle}
+    $$
+\end{frame}
+%\begin{frame}
+%    where $\mathcal{M} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times \mathbf{Assignments}$ is defined by:
+%        $$\frac{A \in \mathbf{Channels}}{(\{A!\ell\}, \{A?a : \ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels}}{(\{A?a : \ell\}, \{A!\ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A?a : \ell\}, \delta \cup \{A!\ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A!\ell\}, \delta \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
+%\end{frame}
+\begin{frame}
+    \frametitle{Example}
+    Channel splitter:
+    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+\end{frame}
+\begin{frame}
+    \small
+    \begin{align*}
+        & C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{true}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
+        & \hspace{1.5cm} \xrightarrow{A!\mathtt{true}} \mathtt{skip} \\
+        & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
+        & \hspace{1.5cm} \xrightarrow{B!\mathtt{true}} \mathtt{skip} \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{false}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
+        & \hspace{1.5cm} \xrightarrow{A!\mathtt{false}} \mathtt{skip} \\
+        & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
+        & \hspace{1.5cm} \xrightarrow{B!\mathtt{false}} \mathtt{skip}
+    \end{align*}
+\end{frame}
+\subsection{CHP to HSE+ Translation}
+\begin{frame}
+    \frametitle{CHP to HSE+ Translation}
+    \small
+    \begin{align*}
+        \overline{A!} & \Rightarrow (A_t \vee A_f) \wedge \neg A_a \\
+        \overline{A?} & \Rightarrow A_a \wedge \neg (A_t \vee A_f) \\
+        A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}]; [A_a];\\ A_t := \mathtt{false}; A_f := \mathtt{false}; [\neg A_a] \\
+                                                          [A_a]; [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}];\\ [\neg A_a]; A_t := \mathtt{false}; A_f := \mathtt{false} \end{matrix} \right. \\
+        A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \mathtt{true};\\ [\neg A_t \wedge \neg A_f]; A_a := \mathtt{false} \\
+                                                 A_a := \mathtt{true}; [A_t \vee A_f]; a := A_t;\\ A_a := \mathtt{false}; [\neg A_t \wedge \neg A_f] \end{matrix} \right. \\
+    \end{align*}
+\end{frame}
+\subsection{Four-Phase Handshake}
+\begin{frame}
+    \frametitle{Four-Phase Handshake}
+    For a dataless communication between two ends $A$ and $B$, the four-phase handshake looks like this:
+    \begin{align*}
+        \text{Active end: } & A \uparrow; [B]; A \downarrow; [\neg B] \\
+        \text{Passive end: } & [A]; B \uparrow; [\neg A]; B \downarrow
+    \end{align*}
+\end{frame}
+\begin{frame}
+    To extend the four-phase handshake to allow for transfer of data, we replace an acknowledgement variable $A$ or $B$ with a set of data transfer variables $A_i$ or $B_i$ (we need as many data transfer variables as we have possible values to send).
+    In the one-bit case, we replace either $A$ with $A_t$ and $A_f$, or $B$ with $B_t$ and $B_f$:
+    \begin{align*}
+        \text{Active end: } & (A_t \lor A_f) \uparrow; [B]; (A_t \lor A_f) \downarrow; [\neg B] \\
+        \text{Passive end: } & [A_t \lor A_f]; \text{(process data)}; B \uparrow; [\neg A_t \land \neg A_f]; B \downarrow \\ \\
+        \text{Active end: } & A \uparrow; [B_t \lor B_f]; \text{(process data)}; A \downarrow; [\neg B_t \land \neg B_f] \\
+        \text{Passive end: } & [A]; (B_t \lor B_f) \uparrow; [\neg A]; (B_t \lor B_f) \downarrow
+    \end{align*}
 \end{frame}
 \section{Weak Bisimilarity}
 \begin{frame}
@@ -338,10 +448,12 @@ Like, black tie formal.
 \begin{itemize}
 \item where $P$ is some program fragment:
 \end{itemize}
+\pause
 \item The decomposition of that program into two separate programs is:
 \begin{itemize}
 \item $(...;C;...) || *[\overline{C} \rightarrow P; C] $ where C is some fresh channel.
 \end{itemize}
+\pause
 \item If $S$ does not contain any uses of shared variables or channel actions:
 \begin{itemize}
 \item$(...;C;...) || *[\overline{C} \rightarrow C; P] $ where C is some fresh channel.
@@ -365,7 +477,7 @@ Like, black tie formal.
 \pause
 \item This will only hold when the only actions in $P$ are $\tau$ actions
 \pause
-\item If that is the case, this will create one addtional $\tau$ action, but do nothing else
+\item If that is the case, this will create one additional $\tau$ action, but do nothing else
 \pause
 \item Therefore, the two are weakly bisimilar
 \end{itemize}
@@ -390,3 +502,4 @@ Like, black tie formal.
 \end{center}
 \end{frame}
 \end{document}
+
