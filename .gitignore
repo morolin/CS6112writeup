@@ -2,6 +2,10 @@
 *.log
 *.pdf
 *.sw*
+*.toc
+*.nav
+*.out
+*.snm
 *.cmi
 *.cmx
 *.annot

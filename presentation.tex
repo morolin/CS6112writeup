@@ -32,13 +32,13 @@ Norris Xu
 \date{\today}
 }
 % have this if you'd like a recurring outline
-\AtBeginSection[]  % "Beamer, do the following at the start of every section"
-{
-\begin{frame}<beamer>
-\frametitle{Outline} % make a frame titled "Outline"
-\tableofcontents[currentsection]  % show TOC and highlight current section
-\end{frame}
-}
+%\AtBeginSection[]  % "Beamer, do the following at the start of every section"
+%{
+%\begin{frame}<beamer>
+%\frametitle{Outline} % make a frame titled "Outline"
+%\tableofcontents[currentsection]  % show TOC and highlight current section
+%\end{frame}
+%}
 \begin{document}
 % this prints title, author etc. info from above
 \begin{frame}[plain]
@@ -316,7 +316,7 @@ Norris Xu
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
-    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]$$}
 \end{frame}
 \subsection{CHP LTS}
 \begin{frame}
@@ -364,7 +364,7 @@ Norris Xu
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
-    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]$$}
 \end{frame}
 \begin{frame}
     \small
@@ -395,25 +395,25 @@ Norris Xu
                                                  A_a := \mathtt{true}; [A_t \vee A_f]; a := A_t;\\ A_a := \mathtt{false}; [\neg A_t \wedge \neg A_f] \end{matrix} \right. \\
     \end{align*}
 \end{frame}
-\subsection{Four-Phase Handshake}
-\begin{frame}
-    \frametitle{Four-Phase Handshake}
-    For a dataless communication between two ends $A$ and $B$, the four-phase handshake looks like this:
-    \begin{align*}
-        \text{Active end: } & A \uparrow; [B]; A \downarrow; [\neg B] \\
-        \text{Passive end: } & [A]; B \uparrow; [\neg A]; B \downarrow
-    \end{align*}
-\end{frame}
-\begin{frame}
-    To extend the four-phase handshake to allow for transfer of data, we replace an acknowledgement variable $A$ or $B$ with a set of data transfer variables $A_i$ or $B_i$ (we need as many data transfer variables as we have possible values to send).
-    In the one-bit case, we replace either $A$ with $A_t$ and $A_f$, or $B$ with $B_t$ and $B_f$:
-    \begin{align*}
-        \text{Active end: } & (A_t \lor A_f) \uparrow; [B]; (A_t \lor A_f) \downarrow; [\neg B] \\
-        \text{Passive end: } & [A_t \lor A_f]; \text{(process data)}; B \uparrow; [\neg A_t \land \neg A_f]; B \downarrow \\ \\
-        \text{Active end: } & A \uparrow; [B_t \lor B_f]; \text{(process data)}; A \downarrow; [\neg B_t \land \neg B_f] \\
-        \text{Passive end: } & [A]; (B_t \lor B_f) \uparrow; [\neg A]; (B_t \lor B_f) \downarrow
-    \end{align*}
-\end{frame}
+%\subsection{Four-Phase Handshake}
+%\begin{frame}
+%    \frametitle{Four-Phase Handshake}
+%    For a dataless communication between two ends $A$ and $B$, the four-phase handshake looks like this:
+%    \begin{align*}
+%        \text{Active end: } & A \uparrow; [B]; A \downarrow; [\neg B] \\
+%        \text{Passive end: } & [A]; B \uparrow; [\neg A]; B \downarrow
+%    \end{align*}
+%\end{frame}
+%\begin{frame}
+%    To extend the four-phase handshake to allow for transfer of data, we replace an acknowledgement variable $A$ or $B$ with a set of data transfer variables $A_i$ or $B_i$ (we need as many data transfer variables as we have possible values to send).
+%    In the one-bit case, we replace either $A$ with $A_t$ and $A_f$, or $B$ with $B_t$ and $B_f$:
+%    \begin{align*}
+%        \text{Active end: } & (A_t \lor A_f) \uparrow; [B]; (A_t \lor A_f) \downarrow; [\neg B] \\
+%        \text{Passive end: } & [A_t \lor A_f]; \text{(process data)}; B \uparrow; [\neg A_t \land \neg A_f]; B \downarrow \\ \\
+%        \text{Active end: } & A \uparrow; [B_t \lor B_f]; \text{(process data)}; A \downarrow; [\neg B_t \land \neg B_f] \\
+%        \text{Passive end: } & [A]; (B_t \lor B_f) \uparrow; [\neg A]; (B_t \lor B_f) \downarrow
+%    \end{align*}
+%\end{frame}
 \section{Weak Bisimilarity}
 \begin{frame}
 \frametitle{Program Equivalence}
@@ -454,7 +454,7 @@ Norris Xu
 \item $(...;C;...) || *[\overline{C} \rightarrow P; C] $ where C is some fresh channel.
 \end{itemize}
 \pause
-\item If $S$ does not contain any uses of shared variables or channel actions:
+\item If $P$ does not contain any uses of shared variables or channel actions:
 \begin{itemize}
 \item$(...;C;...) || *[\overline{C} \rightarrow C; P] $ where C is some fresh channel.
 \end{itemize}
@@ -502,4 +502,3 @@ Norris Xu
 \end{center}
 \end{frame}
 \end{document}
-
