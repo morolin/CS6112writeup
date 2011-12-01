@@ -134,14 +134,14 @@ Norris Xu
 \begin{itemize}
 \item Deterministic guarded selection
 \begin{itemize}
-\item $[\mathrm{b_1} \rightarrow P_1 \talloblong ... \talloblong \mathrm{b_n} \rightarrow P_n]$
+\item $[\mathrm{b_1} \rightarrow P_1 \talloblong \ldots \talloblong \mathrm{b_n} \rightarrow P_n]$
 \item Execute the statement $P_i$ whose guard, $\mathrm{b_i}$ is true
 \item Guards must be mutually exclusive
 \end{itemize}
 \pause
 \item Nondeterministic guarded selection
 \begin{itemize}
-\item $ [\textrm{b}_1 \rightarrow P_1 | \ldots | \textrm{b}_1 \rightarrow P_n ] $
+\item $ [\textrm{b}_1 \rightarrow P_1 | \ldots | \textrm{b}_n \rightarrow P_n ] $
 \item Guards are not required to be mutually exclusive
 \item Assumes demonic nondeterminism
 \end{itemize}
@@ -150,7 +150,7 @@ Norris Xu
 \begin{frame}
 \frametitle{Repeated Selection Statements}
 \begin{itemize}
-\item  $*[\textrm{b}_1 \rightarrow P_1 \talloblong ... \talloblong \textrm{b} \rightarrow P_n]$
+\item  $*[\textrm{b}_1 \rightarrow P_1 \talloblong \ldots \talloblong \textrm{b}_n \rightarrow P_n]$
 \begin{itemize}
 \item As long as one guard is true, execute its corresponding statement
 \item Guards must be mutually exclusive
@@ -228,7 +228,7 @@ Norris Xu
 \end{itemize}
 \end{itemize}
 \end{frame}
-\section{Implementability Restrictions}
+\section{Implementability}
 \subsection{Channel Directionality}
 \begin{frame}
 \frametitle{Channel Directionality}
@@ -304,15 +304,7 @@ Norris Xu
         {\color{red} \mathrm{C}} & {\color{red} ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2}
     \end{align*}
 \end{frame}
-\begin{frame}
-    New to CHP:
-    \begin{itemize}
-        \item Channels $A$
-        \item Channel actions $A!\mathrm{b}, A?a$
-        \item Channel probes $\overline{A!}, \overline{A?}$
-        \item \color{lightgray} Bullet combinator $C_1 \bullet C_2$
-    \end{itemize}
-\end{frame}
+
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
@@ -351,16 +343,8 @@ Norris Xu
         \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \mathtt{false}} \langle \mathtt{skip}, \sigma[a = \mathtt{false}] \rangle} $$$$
         \frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
         \frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
-        %\frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle}
     $$
 \end{frame}
-%\begin{frame}
-%    where $\mathcal{M} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times \mathbf{Assignments}$ is defined by:
-%        $$\frac{A \in \mathbf{Channels}}{(\{A!\ell\}, \{A?a : \ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
-%        $$\frac{A \in \mathbf{Channels}}{(\{A?a : \ell\}, \{A!\ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
-%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A?a : \ell\}, \delta \cup \{A!\ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
-%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A!\ell\}, \delta \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
-%\end{frame}
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
