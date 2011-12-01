@@ -18,34 +18,38 @@
     \ell & ::= \top \; | \bot \\
     \mathrm{b} & ::= a \; | \; \ell \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
     \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
-    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] \\
 \end{align*}
 
-We will use $\{P\}$ as shorthand to indicate terms which are translations of channel actions in CHP.
+We will use $\{P\}$ as shorthand to indicate terms which are translations of
+channel actions in CHP.
 
 \subsection{CHP Grammar}
 \begin{align*}
     \ell & ::= \top \; | \bot \\
-    \mathrm{b} & ::= V \; | \; \ell \; | \; \overline{A!} \; | \; \overline{A?} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
-    \mathrm{V} & ::= a \; | \; A_a \; | \; A_t \; | \; A_v \\
+    \mathrm{b} & ::= a \; | \; \ell \; | \; \overline{A!} \; | \; \overline{A?} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
     \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
-    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] \\
     \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
 \end{align*}
 
-The only terms appearing in this grammar but not the HSE+ grammar are: $\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
-Therefore, it suffices to give translations for just these extra terms; everything else translates to its equivalent in HSE+.
-However, in order to give LTS semantics for channel operations, we need to introduce a system of labels for variables, so that we can distinguish HSE+ channel variables from simply a program's internal variables.
-Thus, we differentiate variables $V$ into ordinary variables $a$, channel acknowledge variables $A_a$, and channel data variables $A_t$ and $A_f$ for true and false, respectively.
-We also need to pick an active end and a passive end for each channel in order to translate into HSE+.
-We decide which end of the channel (the sending end or the receiving end) should be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$ having its sending end active, and $\rho \vDash A?$ the channel $A$ having its receiving end active.
-For simplicity, we restrict all channels to be 1-bit channels.
-We also enforce channel end-to-endness and decide the scope of channels (i.e. minimum enclosing scope outside of which no process ever performs a send or receive on that channel).
+The only terms appearing in this grammar but not the HSE+ grammar are:
+$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
+Therefore, it suffices to give translations for just these extra terms;
+everything else translates to its equivalent in HSE+. We also need to pick an
+active end and a passive end for each channel in order to translate into HSE+.
+We decide which end of the channel (the sending end or the receiving end) should
+be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$
+having its sending end active, and $\rho \vDash A?$ the channel $A$ having its
+receiving end active.  For simplicity, we restrict all channels to be 1-bit
+channels. We also enforce channel end-to-endness and decide the scope of
+channels (i.e. minimum enclosing scope outside of which no process ever
+performs a send or receive on that channel).
 
 \subsection{Translation}
 \begin{align*}
-    \overline{A!} & \Rightarrow (A_t \vee A_f) \wedge \neg A_a \qquad \rho \vDash A! \\
-    \overline{A?} & \Rightarrow A_a \wedge \neg (A_t \vee A_f) \qquad \rho \vDash A? \\
+    \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+    \overline{A?} & \Rightarrow A_a \\
     A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [A_a]; A_t := \bot; A_f := \bot; [\neg A_a] & \qquad \rho \vDash A! \\
                                                       [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot & \qquad \rho \vDash A? \end{matrix} \right. \\
     A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot & \qquad \rho \vDash A! \\
@@ -76,11 +80,64 @@ We also enforce channel end-to-endness and decide the scope of channels (i.e. mi
       \end{matrix} \right. 
 \end{align*}
 
-Above, the probe syntax only details when you have two channels combined together with a bullet.  If you are combining any more, they must be passive.  Their first two actions (a wait and a set) will execute in parallel with all others, then the second wait will be put into the combined AND wait, and their set will be done in parallel.
+Here, $A_a, A_t, A_f$ are three new variables that we create for the purposes of
+translating actions on channel $A$ into HSE+.
 
-We will use $\{A!\mathrm{b}\}$ and $\{A?a\}$ as shorthand for either translation of $A!\mathrm{b}$ and $A?a$, respectively.
+Above, the probe syntax only details when you have two channels combined
+together with a bullet.  If you are combining any more, they must be passive.
+Their first two actions (a wait and a set) will execute in parallel with all
+others, then the second wait will be put into the combined AND wait, and their
+set will be done in parallel.
+
+We will use $\{A!\mathrm{b}\}$ and $\{A?a\}$ as shorthand for either translation
+of $A!\mathrm{b}$ and $A?a$, respectively.
 
 \section{LTS Semantics}
+We begin by defining a ternary relation and a function. First, we define
+$\mathsf{match} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times
+\mathbf{Assignments}$ as follows:
+$$
+    \frac{A \in \mathbf{Channels} \quad a \in \mathbf{Variables}}{(\{A!\ell\}, \{A?a : \ell\}, \{[a = \ell]\}) \in \mathsf{match}} \qquad
+    \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta', \delta, \Sigma) \in \mathsf{match}} $$$$
+    \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta \cup \{A!\ell\}, \delta' \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell\}) \in \mathsf{match}}
+$$
+TODO
+We do not explicitly forbid things like $A!\top \bullet A?a$ and $A?a \bullet
+B?a$ here; perhaps we should? The second one will be caught by static checking,
+at least (since it causes fires\ldots).
+
+Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
+2^{\mathbf{ChannelActions}}$ as follows:
+\begin{flalign*}
+    \mathsf{head}(P || Q) & = \mathsf{head}(P) \cup \mathsf{head}(Q) \\
+    \mathsf{head}(P ; Q) & = \mathsf{head}(P) \\
+    \mathsf{head}(A!\ell) & = \{A!\} \\
+    \mathsf{head}(A?a) & = \{A?\} \\
+    \mathsf{head}(A!\ell \bullet C) & = \{A!\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(A?a \bullet C) & = \{A?\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(P) & = \varnothing \quad \text{for any other program $P$}
+\end{flalign*}
+
+We start with the boolean reduction rules. Here, $P, \sigma$ are the enclosing
+program $P$ and the current environment $\sigma$, respectively.
+$$
+    \frac{}{P, \sigma \models \ell = \ell} \qquad
+    \frac{[a = \ell] \in \sigma}{P, \sigma \models a = \ell} \qquad
+    \frac{\sigma \models \mathrm{b} = \ell}{\sigma \models \neg \mathrm{b} = \neg \ell} $$$$
+    \frac{\sigma \models \mathrm{b} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
+    \frac{\sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
+    \frac{\sigma \models \mathrm{b} = \bot \quad \sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \bot} $$$$
+    \frac{\sigma \models \mathrm{b} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
+    \frac{\sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
+    \frac{\sigma \models \mathrm{b} = \top \quad \sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \top} $$$$
+    \frac{A! \in \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \top} \qquad
+    \frac{A! \notin \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \bot} \qquad
+    \frac{A? \in \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \top} \qquad
+    \frac{A? \notin \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \bot}
+$$
+
+TODO use the new boolean notation? $P, \sigma \models$ instead of just $\sigma \models$\\
+Here are the rules for CHP:
 $$
     % skip, assign, sequential and parallel composition rules
     \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
@@ -104,15 +161,14 @@ $$
     \frac{\sigma \models \mathrm{b} = \bot}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top] \rangle} $$$$
     \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top, a = \top] \rangle} \qquad
     \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top, a = \bot] \rangle} $$$$
-    \frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} \qquad
-    \frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
+    %\frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
+    %\frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathsf{match}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle} $$$$
     % bullet rules
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \top}{\langle \{A!\top \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top] \rangle} $$$$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \bot}{\langle \{A!\bot \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top] \rangle} $$$$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top, a = \top] \rangle} $$$$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top, a = \top] \rangle} $$$$
-    \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma[\Sigma] \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta \cup \{A!\ell\}} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' \cup \{A?a : \ell\}} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma'''[\Sigma, a = \ell] \rangle} $$$$
-    \frac{\begin{matrix} \langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle P'', \sigma' \rangle \xrightarrow{\delta'} \langle P''', \sigma'' \rangle \quad \langle P || P'', \sigma \rangle \xrightarrow{\tau} \langle P' || P''', \sigma[\Sigma] \rangle \\ \langle Q, \sigma''' \rangle \xrightarrow{\delta \cup \{A?a : \ell\}} \langle Q', \sigma'''' \rangle \quad \langle Q'', \sigma'''' \rangle \xrightarrow{\delta' \cup \{A!\ell\}} \langle Q''', \sigma''''' \rangle \end{matrix}}{\langle Q || Q'', \sigma''' \rangle \xrightarrow{\tau} \langle Q' || Q''', \sigma'''[\Sigma, a = \ell] \rangle} $$$$
 $$
 
 $\sigma$ is the environment, which in this case consists of a set of mappings of variables to values.
@@ -245,17 +301,15 @@ channel with a passive sending end, the only probe allowed is a receive probe
 ($\overline{A?}$). Thus we only have one translation for each probe. The
 translations are as follows:
 \begin{flalign*}
-    \overline{A!} & \Rightarrow (A_t \vee A_f) \wedge \neg A_a \\
-    \overline{A?} & \Rightarrow A_a \wedge \neg (A_t \vee A_f)
+    \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+    \overline{A?} & \Rightarrow A_a \\
 \end{flalign*}
 The send probe will only ever be true at the very beginning of an active send:
-when a process attempts to send (by setting $A_t$ or $A_f$ to true), but before
-any other process has attempted to receive (by setting $A_a$ to true). Likewise,
+when a process attempts to send (by setting $A_t$ or $A_f$ to true). Likewise,
 the receive probe will only ever be true at the very beginning of an active
-receive: when a process attempts to receive (by setting $A_a$ to true), but
-before any other process has attempted to send (by setting $A_t$ or $A_f$ to
-true). This behaviour corresponds to the definition of probe; thus, the
-translations are correct in the cases where they apply.
+receive: when a process attempts to receive (by setting $A_a$ to true). This
+behaviour corresponds to the definition of probe; thus, the translations are
+correct in the cases where they apply.
 
 TODO: proof for bullet here
 
