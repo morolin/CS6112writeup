@@ -2,3 +2,8 @@
 *.log
 *.pdf
 *.sw*
+
+*.toc
+*.nav
+*.out
+*.snm

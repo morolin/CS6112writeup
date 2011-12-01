@@ -1,0 +1,504 @@
+\documentclass[compress]{beamer}
+\newcommand{\navwidth}{\paperwidth}
+\pgfdeclareimage[height=0.03\paperheight]{botlogo}{csllogo.pdf}
+%Fiddling around with the Beamer template
+\setbeamertemplate{headline}
+{%
+  \begin{beamercolorbox}[colsep=1.5pt]{upper separation line head}
+  \end{beamercolorbox}
+  \begin{beamercolorbox}{section in head/foot}
+    \vskip2pt\insertnavigation{\navwidth}\vskip2pt
+  \end{beamercolorbox}%
+}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}
+{%
+\vskip2pt%
+\makebox[\paperwidth]{\hskip2pt%
+\hskip2pt\insertsection:\insertsubsection\hfill%
+\insertframenumber/\inserttotalframenumber\hskip2pt}%
+\vskip2pt
+}
+\usepackage{times}  % fonts are up to you
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+\usepackage{xcolor}
+% these will be used later in the title page
+\title{Formalizing Communicating Hardware Processes}
+\author{Stephen Longfield \\
+Alec Story \\
+Norris Xu
+\date{\today}
+}
+% have this if you'd like a recurring outline
+%\AtBeginSection[]  % "Beamer, do the following at the start of every section"
+%{
+%\begin{frame}<beamer>
+%\frametitle{Outline} % make a frame titled "Outline"
+%\tableofcontents[currentsection]  % show TOC and highlight current section
+%\end{frame}
+%}
+\begin{document}
+% this prints title, author etc. info from above
+\begin{frame}[plain]
+\titlepage
+\end{frame}
+\section{Introduction}
+\subsection{Overview}
+\begin{frame}
+\frametitle{Overview}
+\begin{itemize}
+\item Verification of hardware systems
+\item Asynchronous computing
+\begin{itemize}
+\item Manufacturability concerns
+\item Formal specifications
+\end{itemize}
+\item Concurrency-increasing transformations
+\end{itemize}
+\end{frame}
+\subsection{Motivation}
+\begin{frame}
+\frametitle{Motivation of verification}
+\begin{itemize}
+\item Verified hardware is always nice
+\item Manufacturing for hardware is very expensive
+\begin{itemize}
+\item Hardware compilation and test cycles cost millions of dollars
+\item Unit testing and verification is difficult
+\item May miss corner cases
+\end{itemize}
+\item Verification is very difficult
+\begin{itemize}
+\item Stochastic effects of temperature and manufacturing variation
+\end{itemize}
+\end{itemize}
+\end{frame}
+\subsection{Asynchronous Computing}
+\begin{frame}
+\frametitle{Asynchronous Computing}
+\begin{itemize}
+\item Circuit does not make any timing guarantees
+\begin{itemize}
+\item no longer required to design to a clock
+\end{itemize}
+\item Explicit synchronization
+\item These make it possible to verify in ways impossible for synchronous circuits
+\end{itemize}
+\end{frame}
+\section{Language Overview}
+\subsection{Base Language}
+\begin{frame}
+\frametitle{Circuit Description Langauge}
+\begin{itemize}
+\item Describe a language of parallel processes with shared variables
+\begin{itemize}
+\item Closer to hardware implementation
+\item Easy to describe a variety of circuits
+\end{itemize}
+\item On top of it build a message-passing concurrency language
+\begin{itemize}
+\item Restrict to the implementable set
+\end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Simple statements}
+\begin{itemize}
+\item Null statement: $\texttt{skip}$, which does nothing
+\item Variable set: $x := \mathrm{b}$
+\end{itemize}
+\end{frame}
+\begin{frame}
+\begin{itemize}
+\item Boolean:
+\begin{itemize}
+\item Literals: $\texttt{true}$ and $\texttt{false}$
+\item Variables: $x$
+\item AND: $\mathrm{b_1} \land \mathrm{b_2}$
+\item OR: $\mathrm{b_1} \lor \mathrm{b_2}$
+\item NOT: $\lnot \mathrm{b}$
+\end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Program Composition}
+\begin{itemize}
+\item Sequential: $P_1; P_2$
+\item Parallel: $P_1 || P_2$
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Selection Statements}
+\begin{itemize}
+\item Deterministic guarded selection
+\begin{itemize}
+\item $[\mathrm{b_1} \rightarrow P_1 \talloblong ... \talloblong \mathrm{b_n} \rightarrow P_n]$
+\item Execute the statement $P_i$ whose guard, $\mathrm{b_i}$ is true
+\item Guards must be mutually exclusive
+\end{itemize}
+\pause
+\item Nondeterministic guarded selection
+\begin{itemize}
+\item $ [\textrm{b}_1 \rightarrow P_1 | \ldots | \textrm{b}_1 \rightarrow P_n ] $
+\item Guards are not required to be mutually exclusive
+\item Assumes demonic nondeterminism
+\end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Repeated Selection Statements}
+\begin{itemize}
+\item  $*[\textrm{b}_1 \rightarrow P_1 \talloblong ... \talloblong \textrm{b} \rightarrow P_n]$
+\begin{itemize}
+\item As long as one guard is true, execute its corresponding statement
+\item Guards must be mutually exclusive
+\end{itemize}
+\pause
+\item Nondeterminstic guarded selection
+\begin{itemize}
+\item Guards do not need to be mutually exclusive
+\end{itemize}
+\end{itemize}
+\end{frame}
+\subsection{CHP Language}
+\begin{frame}
+\frametitle{Communication Actions}
+\begin{itemize}
+\item Would like to encode a CSP-like language on top of the shared variable framework
+\pause
+\item Encode communication actions in a four-phase variable handshake
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Value send: $X!\textrm{b}$}
+\begin{itemize}
+\item Active:
+\begin{align*}
+    & [\textrm{b} \rightarrow X_t := \texttt{true} \talloblong
+     \lnot \textrm{b} \rightarrow X_f := \texttt{true}]; \\
+    & \hspace{.5cm} [X_a]; (X_t := \texttt{false} || X_f := \texttt{false}); [\lnot X_a]
+\end{align*}
+\item Passive:
+\begin{align*}
+    & [X_a]; [\textrm{b} \rightarrow X_t := \texttt{true} \talloblong
+       \lnot \textrm{b} \rightarrow X_f := \texttt{true} ]; \\
+    & \hspace{.5cm} [\lnot X_a]; (X_t := \texttt{false} || X_f := \texttt{false})
+\end{align*}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Variable receive: $X?y$}
+\begin{itemize}
+\item Active:
+\begin{align*}
+    & X_a := \texttt{true};
+     [X_t \rightarrow y := \texttt{true} \talloblong
+      X_f \rightarrow y := \texttt{false}]; \\
+    & \hspace{.5cm} X_a := \texttt{false};
+      [\lnot X_t \land \lnot X_f]
+\end{align*}
+\item Passive:
+\begin{align*}
+    & [X_t \rightarrow y := \texttt{true} \talloblong
+       X_f \rightarrow y := \texttt{false}]; \\
+    & \hspace{.5cm} X_a := \texttt{true};
+      [\lnot X_t \land \lnot X_f];
+      X_a := \texttt{false};
+\end{align*}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Channel probe: $\overline{C?}$ or $\overline{C!}$}
+\begin{itemize}
+\item True when that channel is ready to send or receive.
+\item $\overline{C?} \mapsto X_a$
+\item $\overline{C!} \mapsto (X_t \lor X_f)$
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Simultaneous Composition}
+\begin{itemize}
+\item Channel actions can synchronize between two processes
+\item It may be the case that we want to synchronize between several processes
+\item In that case, use simultaneous composition of channel actions:
+\begin{itemize}
+\item $C \bullet D$ where both $C$ and $D$ are some channel action
+\end{itemize}
+\end{itemize}
+\end{frame}
+\section{Implementability Restrictions}
+\subsection{Channel Directionality}
+\begin{frame}
+\frametitle{Channel Directionality}
+\pause
+\begin{itemize}
+    \item Before we can implement, channels need direction
+    \pause
+    \item If there are no restrictions, we can choose them arbitrarily
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Restrictions}
+\pause
+\begin{itemize}
+    \item Only probes on the active end of a channel are implementable
+    \pause
+    \item Bullets are messy
+    \pause
+    \begin{itemize}
+        \item Synchronization makes implementation hard
+        \pause
+        \item Only one of the actions in a bullet can be on the active end of a channel, the rest must be passive
+    \end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}[plain]
+\begin{center}
+\huge 2-Sat!
+\end{center}
+\end{frame}
+\subsection{Concurent Writes}
+\begin{frame}
+\frametitle{What's wrong with this program?}
+\begin{center}
+    \begin{displaymath}
+    x := \texttt{true} || x := \texttt{false}
+    \end{displaymath}
+    \pause
+    \LARGE It catches fire!
+\end{center}
+\end{frame}
+\begin{frame}
+\frametitle{How about this one?}
+\begin{center}
+    \begin{displaymath}
+    A?x \bullet B?x
+    \end{displaymath}
+    \pause
+    \LARGE It also catches fire!
+\end{center}
+\end{frame}
+\begin{frame}
+\frametitle{Detecting Potential Fires}
+\begin{itemize}
+\item The only threat occurs at parallel composition, and in bullets
+\pause
+\item Just forbid parallel compositions where the set of variables written to on one side is not disjoint from the set of variables on the other side
+\pause
+\item Also, check bullets to ensure that no variable or channel appears more than once
+\pause
+\item This also enforces end-to-end-ness of channels.
+\end{itemize}
+\end{frame}
+\section{Formal Semantics and LTS}
+\subsection{CHP Grammar}
+\begin{frame}
+    \frametitle{CHP Grammar}
+    \begin{align*}
+        \ell & ::= \mathtt{true} \; | \mathtt{false} \\
+        \mathrm{b} & ::= a \; | \; \ell \; | \; {\color{red} \overline{A!}} \; | \; {\color{red} \overline{A?}} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
+        \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; {\color{red} C} \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
+        \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
+        {\color{red} \mathrm{C}} & {\color{red} ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2}
+    \end{align*}
+\end{frame}
+\begin{frame}
+    New to CHP:
+    \begin{itemize}
+        \item Channels $A$
+        \item Channel actions $A!\mathrm{b}, A?a$
+        \item Channel probes $\overline{A!}, \overline{A?}$
+        \item \color{lightgray} Bullet combinator $C_1 \bullet C_2$
+    \end{itemize}
+\end{frame}
+\begin{frame}
+    \frametitle{Example}
+    Channel splitter:
+    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+\end{frame}
+\subsection{CHP LTS}
+\begin{frame}
+    \frametitle{CHP LTS}
+    \tiny
+    $$
+        % skip, assign, sequential and parallel composition rules
+        \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+        \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma' \rangle} \qquad
+        \frac{\langle Q, \sigma \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma' \rangle} $$$$
+        \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+        \frac{}{\langle \mathtt{skip} || P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+        \frac{}{\langle P || \mathtt{skip}, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b} = \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma[a = \ell] \rangle} \qquad
+        % selection rules
+        \frac{\sigma \models \mathrm{b}_i = \mathtt{true}} {\langle [\mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+        \frac{\sigma \models \mathrm{b}_1 = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \mathtt{false} \; \wedge \mathrm{b}_i = \mathtt{true} \wedge \mathrm{b}_{i+1} = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \mathtt{false}} {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+        \frac{\sigma \models b_1 = \mathtt{false} \wedge \ldots \wedge b_n = \mathtt{false}}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma\rangle } \qquad
+        \frac{\sigma \models b_1 = \mathtt{false} \wedge \ldots \wedge b_n = \mathtt{false}}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma \rangle } $$$$
+    %   \frac{\langle S, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle}{\langle *S, \sigma \rangle \xrightarrow{\tau} \langle P;*S, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b}_1 = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \mathtt{false} \wedge \mathrm{b}_i = \mathtt{true} \wedge \mathrm{b}_{i+1} = \mathtt{false} \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \mathtt{false}} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+        \frac{\sigma \models \mathrm{b}_i = \mathtt{true}} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  }
+    $$
+\end{frame}
+\begin{frame}
+    \small
+    $$
+        % communication rules
+        \frac{\sigma \models \mathrm{b} = \mathtt{true}}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\mathtt{true}} \langle \mathtt{skip}, \sigma \rangle} $$$$
+        \frac{\sigma \models \mathrm{b} = \mathtt{false}}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\mathtt{false}} \langle \mathtt{skip}, \sigma \rangle} $$$$
+        \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \mathtt{true}} \langle \mathtt{skip}, \sigma[a = \mathtt{true}] \rangle} $$$$
+        \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \mathtt{false}} \langle \mathtt{skip}, \sigma[a = \mathtt{false}] \rangle} $$$$
+        \frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
+        \frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+        %\frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle}
+    $$
+\end{frame}
+%\begin{frame}
+%    where $\mathcal{M} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times \mathbf{Assignments}$ is defined by:
+%        $$\frac{A \in \mathbf{Channels}}{(\{A!\ell\}, \{A?a : \ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels}}{(\{A?a : \ell\}, \{A!\ell\}, \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A?a : \ell\}, \delta \cup \{A!\ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
+%        $$\frac{A \in \mathbf{Channels} \quad (\delta, \delta', \Sigma) \in \mathcal{M}}{(\delta \cup \{A!\ell\}, \delta \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell]\}) \in \mathcal{M}}$$
+%\end{frame}
+\begin{frame}
+    \frametitle{Example}
+    Channel splitter:
+    {\small $$*[[\overline{C!} \rightarrow C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]]$$}
+\end{frame}
+\begin{frame}
+    \small
+    \begin{align*}
+        & C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{true}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
+        & \hspace{1.5cm} \xrightarrow{A!\mathtt{true}} \mathtt{skip} \\
+        & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
+        & \hspace{1.5cm} \xrightarrow{B!\mathtt{true}} \mathtt{skip} \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{false}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
+        & \hspace{1.5cm} \xrightarrow{A!\mathtt{false}} \mathtt{skip} \\
+        & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
+        & \hspace{1.5cm} \xrightarrow{B!\mathtt{false}} \mathtt{skip}
+    \end{align*}
+\end{frame}
+\subsection{CHP to HSE+ Translation}
+\begin{frame}
+    \frametitle{CHP to HSE+ Translation}
+    \small
+    \begin{align*}
+        \overline{A!} & \Rightarrow (A_t \vee A_f) \wedge \neg A_a \\
+        \overline{A?} & \Rightarrow A_a \wedge \neg (A_t \vee A_f) \\
+        A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}]; [A_a];\\ A_t := \mathtt{false}; A_f := \mathtt{false}; [\neg A_a] \\
+                                                          [A_a]; [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}];\\ [\neg A_a]; A_t := \mathtt{false}; A_f := \mathtt{false} \end{matrix} \right. \\
+        A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \mathtt{true};\\ [\neg A_t \wedge \neg A_f]; A_a := \mathtt{false} \\
+                                                 A_a := \mathtt{true}; [A_t \vee A_f]; a := A_t;\\ A_a := \mathtt{false}; [\neg A_t \wedge \neg A_f] \end{matrix} \right. \\
+    \end{align*}
+\end{frame}
+\subsection{Four-Phase Handshake}
+\begin{frame}
+    \frametitle{Four-Phase Handshake}
+    For a dataless communication between two ends $A$ and $B$, the four-phase handshake looks like this:
+    \begin{align*}
+        \text{Active end: } & A \uparrow; [B]; A \downarrow; [\neg B] \\
+        \text{Passive end: } & [A]; B \uparrow; [\neg A]; B \downarrow
+    \end{align*}
+\end{frame}
+\begin{frame}
+    To extend the four-phase handshake to allow for transfer of data, we replace an acknowledgement variable $A$ or $B$ with a set of data transfer variables $A_i$ or $B_i$ (we need as many data transfer variables as we have possible values to send).
+    In the one-bit case, we replace either $A$ with $A_t$ and $A_f$, or $B$ with $B_t$ and $B_f$:
+    \begin{align*}
+        \text{Active end: } & (A_t \lor A_f) \uparrow; [B]; (A_t \lor A_f) \downarrow; [\neg B] \\
+        \text{Passive end: } & [A_t \lor A_f]; \text{(process data)}; B \uparrow; [\neg A_t \land \neg A_f]; B \downarrow \\ \\
+        \text{Active end: } & A \uparrow; [B_t \lor B_f]; \text{(process data)}; A \downarrow; [\neg B_t \land \neg B_f] \\
+        \text{Passive end: } & [A]; (B_t \lor B_f) \uparrow; [\neg A]; (B_t \lor B_f) \downarrow
+    \end{align*}
+\end{frame}
+\section{Weak Bisimilarity}
+\begin{frame}
+\frametitle{Program Equivalence}
+\begin{itemize}
+\item Would like to cut up our the space into equivalent sets
+\item Found that weak bisimilarity gave us enough flexibility while still being restrictive enough
+\end{itemize}
+\end{frame}
+\subsection{Definition}
+\begin{frame}
+\frametitle{Weak Bisimulation}
+\begin{itemize}
+\item Intuitively: Does not care about actions on internal channels
+\pause
+\item Formally:
+\begin{itemize}
+\item A binary relation $\mathcal{S}$ over $\mathcal{P}$ is a weak simulation if, whenever $P \mathcal{S} Q$:
+\begin{itemize}
+\item if $P \overset{e}{\Rightarrow} P^\prime$ then there exists a $Q \in \mathcal{P}$ s.t. $Q  \overset{e}{\Rightarrow} Q^\prime$ and $P^\prime \mathcal{S} Q^\prime$
+\item where $\Rightarrow$ is the reflexive transitive closure over $\rightarrow$, and $\overset{\alpha}{\Rightarrow} \overset{\triangle}{=} \Rightarrow \overset{\alpha}{\rightarrow} \Rightarrow$.
+\end{itemize}
+\item A binary relation $\mathcal{S}$ over $\mathcal{P}$ is a weak bisimulation if both $\mathcal{S}$ and its converse are weak simulations.
+\item Weak bisimilarity, $\approx$ is the union of all weak bisimulations.
+\end{itemize}
+\end{itemize}
+\end{frame}
+\subsection{Applications}
+\begin{frame}
+\frametitle{Program Decomposition}
+\begin{itemize}
+\item If we have some CHP program of the form: $...;P;...$
+\begin{itemize}
+\item where $P$ is some program fragment:
+\end{itemize}
+\pause
+\item The decomposition of that program into two separate programs is:
+\begin{itemize}
+\item $(...;C;...) || *[\overline{C} \rightarrow P; C] $ where C is some fresh channel.
+\end{itemize}
+\pause
+\item If $S$ does not contain any uses of shared variables or channel actions:
+\begin{itemize}
+\item$(...;C;...) || *[\overline{C} \rightarrow C; P] $ where C is some fresh channel.
+\end{itemize}
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Program Decomposition}
+\begin{itemize}
+\item We would like to show that $ ...;P;... \approx (...;C;...) || *[\overline{C} \rightarrow P; C]$
+\pause
+\item Equivalent to showing that $P \approx C || *[\overline{C} \rightarrow P; C]$
+\pause
+\item This will be the case, as the probe of C will not become true until the communication action begins, and then the only action possible are the ones that were possible in S.
+\end{itemize}
+\end{frame}
+\begin{frame}
+\frametitle{Process Decomposition}
+\begin{itemize}
+\item We would like to show that $ ...;P;... \approx (...;C;...) || *[\overline{C} \rightarrow C; P]$
+\pause
+\item This will only hold when the only actions in $P$ are $\tau$ actions
+\pause
+\item If that is the case, this will create one additional $\tau$ action, but do nothing else
+\pause
+\item Therefore, the two are weakly bisimilar
+\end{itemize}
+\end{frame}
+\section{Conclusions}
+\subsection{Summary}
+\begin{frame}
+\frametitle{Summary and Conclusions}
+\begin{itemize}
+\item Encoded a CSP analogue in a shared-variable language
+\pause
+\item Showed that we could guarantee implementability relations
+\pause
+\item Discussed the formal semantics of the languages
+\pause
+\item Showed some concurrency-increasing transformations that preserve weak bisimilarity
+\end{itemize}
+\end{frame}
+\begin{frame}[plain]
+\begin{center}
+\Huge Questions?
+\end{center}
+\end{frame}
+\end{document}
