@@ -301,7 +301,7 @@ Norris Xu
         \mathrm{b} & ::= a \; | \; \ell \; | \; {\color{red} \overline{A!}} \; | \; {\color{red} \overline{A?}} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
         \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; {\color{red} C} \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
         \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; ... \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; ... \; | \mathrm{b}_n \rightarrow P_n ] \\
-        {\color{red} \mathrm{C}} & {\color{red} ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2}
+        \mathrm{C} & ::= {\color{red} A!\mathrm{b}} \; | \; {\color{red} A?a} \; | \; {\color{red} C_1 \bullet C_2}
     \end{align*}
 \end{frame}
 \begin{frame}
@@ -316,7 +316,7 @@ Norris Xu
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
-    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]$$}
+    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B!c]]$$}
 \end{frame}
 \subsection{CHP LTS}
 \begin{frame}
@@ -364,18 +364,18 @@ Norris Xu
 \begin{frame}
     \frametitle{Example}
     Channel splitter:
-    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c]]$$}
+    {\small $$*[C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B!c]]$$}
 \end{frame}
 \begin{frame}
     \small
     \begin{align*}
-        & C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
-        & \hspace{0.5cm} \xrightarrow{C?\mathtt{true}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & C?c; [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B!c] \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{true}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B!c] \\
         & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
         & \hspace{1.5cm} \xrightarrow{A!\mathtt{true}} \mathtt{skip} \\
         & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
         & \hspace{1.5cm} \xrightarrow{B!\mathtt{true}} \mathtt{skip} \\
-        & \hspace{0.5cm} \xrightarrow{C?\mathtt{false}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B?c] \\
+        & \hspace{0.5cm} \xrightarrow{C?\mathtt{false}} [\overline{A?} \rightarrow A!c \, | \, \overline{B?} \rightarrow B!c] \\
         & \hspace{1.0cm} \xrightarrow{\tau} A!c \\
         & \hspace{1.5cm} \xrightarrow{A!\mathtt{false}} \mathtt{skip} \\
         & \hspace{1.0cm} \xrightarrow{\tau} B!c \\
@@ -387,8 +387,8 @@ Norris Xu
     \frametitle{CHP to HSE+ Translation}
     \small
     \begin{align*}
-        \overline{A!} & \Rightarrow (A_t \vee A_f) \wedge \neg A_a \\
-        \overline{A?} & \Rightarrow A_a \wedge \neg (A_t \vee A_f) \\
+        \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+        \overline{A?} & \Rightarrow A_a \\
         A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}]; [A_a];\\ A_t := \mathtt{false}; A_f := \mathtt{false}; [\neg A_a] \\
                                                           [A_a]; [\mathrm{b} \rightarrow A_t := \mathtt{true} \talloblong \neg \mathrm{b} \rightarrow A_f := \mathtt{true}];\\ [\neg A_a]; A_t := \mathtt{false}; A_f := \mathtt{false} \end{matrix} \right. \\
         A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \mathtt{true};\\ [\neg A_t \wedge \neg A_f]; A_a := \mathtt{false} \\
@@ -445,9 +445,6 @@ Norris Xu
 \frametitle{Program Decomposition}
 \begin{itemize}
 \item If we have some CHP program of the form: $...;P;...$
-\begin{itemize}
-\item where $P$ is some program fragment:
-\end{itemize}
 \pause
 \item The decomposition of that program into two separate programs is:
 \begin{itemize}
@@ -492,6 +489,8 @@ Norris Xu
 \item Showed that we could guarantee implementability relations
 \pause
 \item Discussed the formal semantics of the languages
+\pause
+\item Proved the correctness of our implementation
 \pause
 \item Showed some concurrency-increasing transformations that preserve weak bisimilarity
 \end{itemize}
