@@ -59,7 +59,8 @@ and format_boolean = function
       format_variable var;
       msg "@]"
   | BLit(_, b) -> msg "@[%b@]" b
-  | BProbe(_, channel) -> msg "@[-%s@]" channel
+  | BProbeRecv(_, channel) -> msg "@[#%s?@]" channel
+  | BProbeSend(_, channel) -> msg "@[#%s!@]" channel
   | BAnd(_, b1, b2) -> msg "@[";
       format_boolean b1;
       msg "@ and@ ";
@@ -77,7 +78,7 @@ and format_boolean = function
 let rec format_program = function
   | PGets(_, var, b) -> msg "@[";
       format_variable var;
-      msg "@ := @ ";
+      msg "@ :=@ ";
       format_boolean b;
       msg "@]"
   | PSelect(_, s) -> format_select s
@@ -87,12 +88,12 @@ let rec format_program = function
   | PChannel(_, chan) -> msg "@[";
       format_channel chan;
       msg "@]"
-  (* TODO(astory): reduce redundent parens *)
   | PSeq(_, p1, p2) -> msg "@[";
       format_program p1;
       msg ";@ ";
       format_program p2;
       msg "@]"
+  (* TODO(astory): reduce redundent parens *)
   | PPar(_, p1, p2) -> msg "@[(";
       format_program p1;
       msg "@ ||@ ";

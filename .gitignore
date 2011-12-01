@@ -2,8 +2,16 @@
 *.log
 *.pdf
 *.sw*
-
 *.toc
 *.nav
 *.out
 *.snm
+*.cmi
+*.cmx
+*.annot
+*.output
+*.omc
+*.omakedb*
+*.a
+*.cmxa
+*.opt

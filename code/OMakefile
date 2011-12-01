@@ -39,7 +39,7 @@ RESULT = frenetic
 NATIVE_ENABLED = true
 USE_OCAMLFIND = true
 OCAMLFLAGS    = -dtypes -rectypes
-OCAMLPACKS += num str unix batteries
+OCAMLPACKS += num str unix ocamlgraph
 OCAMLYACC = ocamlyacc -v
 MAKE = make
 
@@ -63,6 +63,7 @@ OCAMLINCLUDES += $(FBASEDIR)
 # Sources
 
 FRENETIC_BASE_SOURCES[] = \
+    direction.mli direction.ml \
     id.mli id.ml \
     parser.mly lexer.mll \
     prefs.mli prefs.ml \

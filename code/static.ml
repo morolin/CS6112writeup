@@ -4,11 +4,18 @@ open Syntax
 
 (* type for variables without their info tags *)
 (* TODO(astory): consider moving to syntax *)
+(* TODO(astory): consider carrying a union of info around *)
 type short_variable =
   | SVar of string
   | SAck of string
   | STrue of string
   | SFalse of string
+
+let string_of_sv = function
+  | SVar(s) -> s
+  | SAck(s) -> s ^ "`a"
+  | STrue(s) -> s ^ "`t"
+  | SFalse(s) -> s ^ "`f"
 
 let sv = function
   | VVar(_, s) -> SVar(s)
@@ -28,15 +35,16 @@ let union3 a b c = VarSet.union a (VarSet.union b c)
 let no_inter s1 s2 = VarSet.is_empty (VarSet.inter s1 s2)
 let mk_ack s = singleton (SAck(s))
 let mk_data s = VarSet.add (STrue(s)) (singleton (SFalse(s)))
-let mk_probe = mk_data
 
 exception TypeException of (Info.t * string)
+
+(* TODO(astory): stop assuming all channels are sender-active *)
 
 let rec check_boolean = function
   | BVar(_, v) -> singleton (sv v)
   | BLit(_, _) -> VarSet.empty
-  (* TODO(astory): probes on sends and receives *)
-  | BProbe(_, s) -> mk_probe s
+  | BProbeRecv(_, s) -> mk_ack s
+  | BProbeSend(_, s) -> mk_data s
   | BAnd(_, b1, b2) -> union2 (check_boolean b1) (check_boolean b2)
   | BOr(_, b1, b2) -> union2 (check_boolean b1) (check_boolean b2)
   | BNot(_, b) -> check_boolean b
@@ -68,9 +76,14 @@ let rec check_program = function
   | PPar(i, p1, p2) ->
       let (r1, w1) = check_program p1 in
       let (r2, w2) = check_program p2 in
-      (* TODO(astory): put variables into error message *)
       if not (no_inter w1 w2) then
-        raise (TypeException(i, "Fire hazard"))
+        let variables = VarSet.inter w1 w2 in
+        let variables_s = String.concat ", "
+                         (List.map string_of_sv
+                         (VarSet.elements variables))
+        in
+        let error = "Fire hazard in " ^ variables_s in
+        raise (TypeException(i, error))
       else
         (union2 r1 r2, union2 w1 w2)
   | PSkip(_) -> VarSet.empty, VarSet.empty

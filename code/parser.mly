@@ -47,7 +47,7 @@ let syntax_error i s =
 %}
 %token <Info.t> EOF
 %token <Info.t> LPAREN RPAREN
-%token <Info.t> TRUE FALSE TILDE MINUS AND OR
+%token <Info.t> TRUE FALSE TILDE POUND AND OR
 %token <Info.t> GETS STAR SEQ PAR SKIP
 %token <Info.t> LBRACK RBRACK THICKBAR THINBAR ARROW
 %token <Info.t> BANG QMARK DOT
@@ -70,10 +70,12 @@ boolean:
     { BLit($1, true) }
   | FALSE
     { BLit($1, false) }
-    /* TODO(astory): probes on sends and receives */
-  | MINUS UIDENT
+  | POUND UIDENT QMARK
     { let i, s = $2 in
-      BProbe(m $1 i, s) }
+      BProbeRecv(m $1 i, s) }
+  | POUND UIDENT BANG
+    { let i, s = $2 in
+      BProbeSend(m $1 i, s) }
   | boolean AND boolean
     { let i = mb $1 $3 in
       BAnd(i, $1, $3) }
@@ -90,15 +92,6 @@ variable:
   | LIDENT
     { let i, s = $1 in
       VVar(i, s) }
-  | UIDENT CHANACK
-    { let i, s = $1 in
-      VAck(m i $2, s) }
-  | UIDENT CHANTRUE
-    { let i, s = $1 in
-      VTrue(m i $2, s) }
-  | UIDENT CHANFALSE
-    { let i, s = $1 in
-      VFalse(m i $2, s) }
 
 program:
   | variable GETS boolean
@@ -140,9 +133,13 @@ det_select:
       SDRecur(i, $1, $3, $5) }
 
 nondet_select:
-  | boolean ARROW program
-    { let i = m (info_of_boolean $1) (info_of_program $3) in
-      SNBase(i, $1, $3) }
+  /* The base case here is larger to prevent a reduce/reduce conflict over
+   * [b -> p], so this way, [b -> p] will always be det_select */
+  | boolean ARROW program THINBAR boolean ARROW program
+    { let i = m (info_of_boolean $5) (info_of_program $7) in
+      let base = SNBase(i, $5, $7) in
+	  let i' = m (info_of_boolean $1) (info_of_program $3) in
+	  SNRecur(i', $1, $3, base) }
   | boolean ARROW program THINBAR nondet_select
     { let i = m (info_of_boolean $1) (info_of_select_nondet $5) in
       SNRecur(i, $1, $3, $5) }

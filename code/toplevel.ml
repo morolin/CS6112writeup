@@ -29,6 +29,8 @@
 (* $Id$ *)
 (******************************************************************************)
 
+exception Exception of string
+
 let sprintf = Printf.sprintf
 
 let arg_spec =
@@ -38,6 +40,12 @@ let usage prog = sprintf "Usage:\n    %s [options] F.chp [F.chp...]\n" prog
 
 let anon_cell = ref []
 let anon_arg x = anon_cell := (x::!anon_cell)
+
+let swap (x, y) = (y, x)
+let labels_to_string labels =
+  let assignments = List.map (fun x -> Direction.string_of_node (swap x))
+                    (Direction.ChanMap.bindings labels) in
+  String.concat "\n" ("Channel assignments: " :: assignments)
 
 let go' prog () =
   Arg.parse arg_spec anon_arg (usage prog);
@@ -52,9 +60,21 @@ let go' prog () =
               (Error.error
                  (fun () -> Util.format "@[%s:@ syntax@ error@\n@]"
                    (Info.string_of_t (Lexer.info lexbuf)))) in
-        Static.nofires ast;
-        print_string (Pretty.string_of_program ast);
-		print_string "\n";
+        (try
+          Static.nofires ast
+        with Static.TypeException(i, s) ->
+          print_string (s ^ " at " ^ Info.string_of_t i ^ "\n");
+          exit 2);
+        (try
+          let labels = Direction.label_channels ast in
+          print_string (Pretty.string_of_program ast);
+          print_string "\n";
+          print_string (labels_to_string labels);
+          print_string "\n";
+          ()
+        with Direction.DirectionException(s) ->
+          print_string (s ^ "\n");
+          exit 2);
         ()
       end
     | _ ->
