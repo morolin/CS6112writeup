@@ -1,0 +1,815 @@
+\documentclass[times, 10pt]{article}
+
+\usepackage{amsmath}
+\usepackage{mathpartir}
+\usepackage{amssymb}
+\usepackage{fullpage}
+\usepackage{stmaryrd}
+\usepackage{cite}
+\usepackage{verbatim}
+
+\newcommand{\union}{\cup}
+\newcommand{\Union}{\bigcup}
+\newcommand{\intersection}{\cap}
+\newcommand{\thickbar}{\talloblong}
+%\newcommand{\Skip}{\hbox{\bf skip}}
+
+\def\Skip{\hbox{\tt skip}}
+\def\Else{\hbox{\bf else}}
+\def\mod{\hbox{\bf mod}}
+\def\true{\hbox{\bf true}}
+\def\false{\hbox{\bf false}}
+\let\prsarrow = \mapsto
+\def\citepunct{,}  
+\def\citedash{-}
+
+\begin{document}
+
+\title{Formalizing Communicating Hardware Processes}
+\author{Stephen Longfield\\Alec Story\\Norris Xu}
+\maketitle
+
+\section{Introduction and Overview}
+% Stephen
+
+This semester, we took the course CS6112, and applied the principles from that course, along with conventional PL theory reasoning to the Communicating Hardware Processes language used by the Asynchronous VLSI group at Cornell. 
+
+Our first observation was that the CHP language is compiled down to the handshaking expansion (HSE) language as the first step of the compilation process, and HSE has far fewer primitives.  Therefore, we defined each construct in CHP as being built of HSE primitives, and then reasoned about these simpler structures.
+
+However, we wanted to reason about programs in the CHP language, and do so in a way consistent with the calculi that we had been learning about in class.  Therefore, we built a labeled transition system in the CHP language, and discussed how it related to the HSE operational semantics that we had defined.
+
+Once we had defined the LTS semantics, we were able to use it to reason about simple equivalences.
+
+\section{Asynchronous Computing}
+% Stephen
+
+\section{CHP}
+% Stephen
+
+The Communicating Hardware Processes (CHP) language is the language commonly used to describe asynchronous circuits at a high level.  A formal semantics will be given for it in this document, but it is presented here informally.
+
+As convention, variables are ranged over by lowercase letters, $a, b, c
+\ldots$, channels are ranged over by uppercase letters from the beginning of
+the alphabet, $A, B, C \ldots$ ,  and programs or program segments are ranged
+over by uppercase letters from the second half of the alphabet, $P, Q, R
+\ldots$
+
+\begin{itemize}
+
+\item \textbf{Skip}: $\Skip$.  This statement does nothing.
+
+\item \textbf{Assignment}: $x := E$.  This statement means ``assign the value
+of $E$ to $x$.'' The statements $x\uparrow$ and $x\downarrow$ are shorthand for $x := \true$
+and $x := \false$, respectively.
+
+\item \textbf{Communication}: $A!e$ is a statement meaning ``send the value of
+$e$ over channel $A$,'' and $B?x$ means ``receive a value over channel $B$ and
+store it in variable $x$.''  Both sending and receiving are blocking.
+
+\item \textbf{Probe}: The boolean $\overline{A}$ is true if and only if a communication
+on channel $A$ can complete without suspending.
+
+\item \textbf{Selection}: $[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow P_n]$,
+where each $G_i$ is a boolean expression, and each $P_i$ is a statement.  This
+statement is executed by waiting for one of the guards to be true, and then
+executing one statement with a true guard.  If the guards are not mutually
+exclusive, we use the thin bar ($|$) instead of the thick bar ($\talloblong$). $[G]$ is
+used as a shorthand for $[G \rightarrow \Skip]$.
+
+\item \textbf{Repetition}: $*[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow
+P_n]$. This statement is executed by choosing one of the true guards and
+executing the corresponding statement, repeating until all guards evaluate to
+false. If the guards are not mutually exclusive, we use the thin bar ($\|$)
+instead of the thick bar ($[]$). $*[P]$ is used as a shorthand for $*[\true \rightarrow
+P]$.
+
+\item \textbf{Sequential Composition}: $P;Q$.  This statement means ``execute
+statement $P$, and then execute statement $Q$.''
+
+\item \textbf{Parallel Composition}:$P || Q$.  This statement means ``execute
+statement $P$, while simultaneously executing statement $Q$.''
+
+\item \textbf{Simultaneous Composition}: $P \bullet Q$.  This statement means
+``execute channel actions $P$ and $Q$ such that they complete
+simultaneously.'' 
+
+\end{itemize}
+
+\section{HSE+}
+% Alec
+
+The CHP that existing users expect has too many primitives to model cleanly,
+having both shared variables and channels, and the channels support
+multi-channel synchronization, and peeking at channel values and state.  Rather
+than model CHP directly, we propose modeling a weaker language, HSE+ which
+contains only the shared variables and selection statements from CHP, making it
+much closer to HSE, although it assumes distinguishable states which HSE does
+not.
+
+\subsection{Grammar}
+\begin{align*}
+\mathrm{\ell} & :: = \top \; | \; \bot \\
+\mathrm{b} & ::= \ell \; | \;  a \; | \;
+                 \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \;
+                 \mathrm{b}_1 \vee \mathrm{b}_2 \; | \;
+                 \lnot \mathrm{b} \\
+\mathrm{P} & ::= a := b \; | \; S \; | \; *S \; | \;
+                 P_1; P_2 \; | \: P_1 || P_2 \; | \;
+                 \mathtt{\Skip} \\
+\mathrm{S} & ::=
+    [ b_1 \rightarrow P_1  \talloblong \; ... \; \talloblong b_n \rightarrow P_n ] \; | \;
+    [ b_1 \rightarrow P_1 | \; ... \; | b_n \rightarrow P_n ]
+\end{align*}
+
+\subsection{Operational Semantics}
+\subsubsection{Booleans}
+
+\begin{mathpar}
+\inferrule* [left=Primitive]
+    { }
+    {\sigma \models \ell = \ell}
+
+\inferrule* [left=Read]
+    {a \gets \ell \in \sigma}
+    {\sigma \models a = \ell}
+
+\inferrule* [left=Neg]
+    {\sigma \models b = \ell}
+    {\sigma \models \lnot b = \lnot \ell}
+
+\inferrule* [left=And]
+    {\sigma \models b_1 = \ell_1 \\ \sigma \models b_2 = \ell_2}
+    {\sigma \models b_1 \land b_2 = \ell_1 \land \ell_2}
+
+\inferrule* [left=Or]
+    {\sigma \models b_1 = \ell_1 \\ \sigma \models b_2 = \ell_2}
+    {\sigma \models b_1 \lor b_2 = \ell_1 \lor \ell_2}
+\end{mathpar}
+
+Behavior of a boolean statement containing an uninitialized variable is
+undefined, but if a process is of type $(\emptyset, w)$ (see Type System,
+below), then this will never happen.
+
+\subsubsection{Processes}
+
+\begin{mathpar}
+
+\inferrule* [left=SkipSeq]
+    { }
+    {\Skip; P, \sigma \rightarrow P, \sigma}
+
+\inferrule* [left=SkipPar]
+    { }
+    {\Skip || P, \sigma \rightarrow P, \sigma}
+
+\inferrule* [left=ParCommute]
+    { }
+    {P_1 || P_2, \sigma \rightarrow P_2 || P_1, \sigma}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule* [left=StepSeq]
+    {P_1, \sigma \rightarrow P_1', \sigma'}
+    {P_1; P_2, \sigma \rightarrow P_1'; P_2, \sigma'}
+
+\inferrule* [left=StepPar]
+    {P_1, \sigma \rightarrow P_1', \sigma'}
+    {P_1 || P_2, \sigma \rightarrow P_1' || P_2, \sigma'}
+
+\inferrule* [left=Assign]
+    {\sigma \models b = \ell}
+    {a := b, \sigma \rightarrow \Skip, \sigma[ a = \ell]}
+\end{mathpar}
+
+\begin{mathpar}
+\inferrule* [left=SelectDet]
+    {\sigma \models b_1 = \bot \land \ldots \land
+                    b_{i-1} = \bot \land
+                    b_i = \top \land
+                    b_{i+1} = \bot \land \ldots \land
+                    b_n = \bot}
+    {[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
+      b_i \rightarrow P_i \thickbar \ldots \thickbar
+      b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
+
+\inferrule* [left=SelectNonDet]
+    {\sigma \models b_i = \top}
+    {[b_1 \rightarrow P_1 | \ldots |
+      b_i \rightarrow P_i | \ldots |
+      b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
+\end{mathpar}
+
+%\marginpar{avs: this is actually a little wrong}
+\begin{mathpar}
+\inferrule* [left=Repeat]
+    {S, \sigma \rightarrow P, \sigma}
+    {*S, \sigma \rightarrow P; *S, \sigma}
+
+\inferrule* [left=RepeatNoneDet]
+    {\sigma \models b_1 = \bot \land \ldots \land b_n = \bot}
+    {*[b_1 \rightarrow P_1 \thickbar \ldots \thickbar
+      b_n \rightarrow P_n], \sigma \rightarrow \Skip, \sigma}
+
+\inferrule* [left=RepeatNoneNonDet]
+    {\sigma \models b_1 = \bot \land \ldots \land b_n = \bot}
+    {*[b_1 \rightarrow P_1 | \ldots |
+      b_n \rightarrow P_n], \sigma \rightarrow \Skip, \sigma}
+\end{mathpar}
+
+
+\section{CHP embedding into HSE+}
+% Norris/Stephen
+
+\begin{comment}
+\subsection{HSE+ Grammar}
+\begin{align*}
+    \ell & ::= \top \; | \bot \\
+    \mathrm{b} & ::= a \; | \; \ell \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
+    \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] \\
+\end{align*}
+
+\end{comment}
+
+
+\subsection{CHP Grammar}
+\begin{align*}
+    \ell & ::= \top \; | \bot \\
+    \mathrm{b} & ::= a \; | \; \ell \; | \; \overline{A!} \; | \; \overline{A?} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
+    \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
+    \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] \\
+    \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
+\end{align*}
+
+The only terms appearing in this grammar but not the HSE+ grammar are:
+$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
+Therefore, it suffices to give translations for just these extra terms;
+everything else translates to its equivalent in HSE+. We also need to pick an
+active end and a passive end for each channel in order to translate into HSE+.
+We decide which end of the channel (the sending end or the receiving end) should
+be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$
+having its sending end active, and $\rho \vDash A?$ the channel $A$ having its
+receiving end active.  For simplicity, we restrict all channels to be 1-bit
+channels. We also enforce channel end-to-endness and decide the scope of
+channels (i.e. minimum enclosing scope outside of which no process ever
+performs a send or receive on that channel).
+
+\subsection{Translation}
+
+
+We will use $\{P\}$ as shorthand to indicate terms which are translations of
+channel actions in CHP.
+
+\begin{align*}
+    \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+    \overline{A?} & \Rightarrow A_a \\
+    A!\mathrm{b} & \Rightarrow \left\{ \begin{matrix} [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [A_a]; A_t := \bot; A_f := \bot; [\neg A_a] & \qquad \rho \vDash A! \\
+                                                      [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot & \qquad \rho \vDash A? \end{matrix} \right. \\
+    A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot & \qquad \rho \vDash A! \\
+                                             A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f] & \qquad \rho \vDash A? \end{matrix} \right. \\
+     %%% Bulleted receive, both passive
+    C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+    %%% Bulleted receive, one active
+     [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ ]& \qquad \rho \vDash C_1!, C_2?
+      \end{matrix} \right.  \\
+      %%% Bulleted send, both passive
+          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) ]& \; \rho \vDash C_1?, C_2? \\
+    %%% Bulleted send, one active
+    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+    \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ] & \; \rho \vDash C_1?, C_2!
+      \end{matrix} \right. \\
+      %%% Bulleted send/recieve, both passive
+          C_1!b \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+    %%% Bulleted send/recieve, receive active
+         [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
+    \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2? \\
+    %%% Builleted send/recieve, send active
+      [ ( [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1?, C_2!
+      \end{matrix} \right. 
+\end{align*}
+
+Here, $A_a, A_t, A_f$ are three new variables that we create for the purposes of
+translating actions on channel $A$ into HSE+.
+
+Above, the probe syntax only details when you have two channels combined
+together with a bullet.  If you are combining any more, they must be passive.
+Their first two actions (a wait and a set) will execute in parallel with all
+others, then the second wait will be put into the combined AND wait, and their
+set will be done in parallel.
+
+We will use $\{A!\mathrm{b}\}$ and $\{A?a\}$ as shorthand for either translation
+of $A!\mathrm{b}$ and $A?a$, respectively.
+
+{\bf
+TODO: proof for bullet here
+}
+
+\section{Restrictions and Static Analysis}
+%Alec
+
+
+
+In the physical reality of implementing our language on hardware, if we ever
+have two concurrent programs that write two different values to the same
+variable simultaneously, we will connect voltage to ground through the variable,
+which is a short circuit, and will cause the circuit to literally catch fire.
+To prevent this from happening, we provide a static analysis method that tracks
+which variables a program may write to, and prohibits parallel processes from
+writing to the same variables.  Because HSE+ is Turing-complete modulo infinite
+memory, we must take a worst-case evaluation of select statements.
+
+Additionally, we track variables which a program may read from which are certain
+to be not defined when they are read.  This does not provide strong guarantees,
+since we could set a variable only in one branch of a guard before reading it,
+but it is simple to track, and catches many programming errors.  When
+implementing CHP in HSE+, it also allows us to provide a guarantee that at
+least certain obvious cases of communication via non-channel shared variables is
+not occurring.
+
+A process or boolean has a \emph{footprint} assigned to it if it does not
+contain the possibility of simultaneous writes.  A boolean's footprint is simply
+the set of variables it reads from, and a process's footprint is a pair $(r,
+w)$, where $w$ is the set of variables it writes to, and $r$ is the set of
+variables that the process reads from before it could possibly have written to
+them.
+
+\subsection{Booleans}
+\begin{mathpar}
+\inferrule* [left=Primitive]
+    { }
+    {\ell : \emptyset}
+
+\inferrule* [left=Read]
+    { }
+    {a : \{a\}}
+
+\inferrule* [left=Not]
+    {b : r}
+    {\lnot b : r}
+
+\inferrule* [left=And]
+    {b_1 : r_1 \\ b_2 : r_2}
+    {b_1 \land b_2 : r_1 \union r_2}
+
+\inferrule* [left=Or]
+    {b_1 : r_1 \\ b_2 : r_2}
+    {b_1 \lor b_2 : r_1 \union r_2}
+\end{mathpar}
+
+\subsection{Programs}
+\begin{mathpar}
+\inferrule* [left=Skip]
+    { }
+    {skip : (\emptyset, \emptyset)}
+
+\inferrule* [left=Write]
+    {b : r}
+    {a := b : (r, \{a\})}
+
+\inferrule* [left=Sequence]
+    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2)}
+    {p_1; p_2 : (r_1 \union (r_2 \setminus w_1), w_1 \union w_2)}
+
+\inferrule* [left=Parallel]
+    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2) \\ w_1 \intersection w_2 = \emptyset}
+    {p_1 || p_2 :
+        ((r_1 \setminus w_2) \union (r_2\setminus w_1), w_1 \union w_2)}
+
+\inferrule* [left=Selection]
+    {b_1 : q_1, \ldots, b_n : q_n \\
+     p_1 : (r_1, w_1), \ldots, p_n : (r_n, w_n)}
+    {[b_1 \rightarrow p_1  | \ldots | b_n \rightarrow p_n] : 
+     (\Union_{i=1}^{n} (q_i \union r_i), \Union_{i=1}^{n} w_i)}
+
+\inferrule* [left=Repetition]
+    {s : (r,w)}
+    {\ast s : (r,w)}
+\end{mathpar}
+
+Let $p$ range over programs, and $s$ range over both deterministic and
+non-deterministic selection statements.
+
+The third requirement of the \textsc{Parallel} rule prevents fires; if the write
+sets of both parallel programs do not overlap, then they cannot write to the
+same variables, and we will not have short circuits.
+
+\section{Labeled Transition System for CHP}
+% Norris
+We begin by defining a ternary relation and a function. First, we define
+$\mathsf{match} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times
+\mathbf{Assignments}$ as follows:
+$$
+    \frac{A \in \mathbf{Channels} \quad a \in \mathbf{Variables}}{(\{A!\ell\}, \{A?a : \ell\}, \{[a = \ell]\}) \in \mathsf{match}} \qquad
+    \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta', \delta, \Sigma) \in \mathsf{match}} $$$$
+    \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta \cup \{A!\ell\}, \delta' \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell\}) \in \mathsf{match}}
+$$
+
+{\bf TODO
+We do not explicitly forbid things like $A!\top \bullet A?a$ and $A?a \bullet
+B?a$ here; perhaps we should? The second one will be caught by static checking,
+at least (since it causes fires\ldots). }
+
+Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
+2^{\mathbf{ChannelActions}}$ as follows:
+\begin{flalign*}
+    \mathsf{head}(P || Q) & = \mathsf{head}(P) \cup \mathsf{head}(Q) \\
+    \mathsf{head}(P ; Q) & = \mathsf{head}(P) \\
+    \mathsf{head}(A!\ell) & = \{A!\} \\
+    \mathsf{head}(A?a) & = \{A?\} \\
+    \mathsf{head}(A!\ell \bullet C) & = \{A!\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(A?a \bullet C) & = \{A?\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(P) & = \varnothing \quad \text{for any other program $P$}
+\end{flalign*}
+
+We start with the boolean reduction rules. Here, $P, \sigma$ are the enclosing
+program $P$ and the current environment $\sigma$, respectively.
+$$
+    \frac{}{P, \sigma \models \ell = \ell} \qquad
+    \frac{[a = \ell] \in \sigma}{P, \sigma \models a = \ell} \qquad
+    \frac{\sigma \models \mathrm{b} = \ell}{\sigma \models \neg \mathrm{b} = \neg \ell} $$$$
+    \frac{\sigma \models \mathrm{b} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
+    \frac{\sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
+    \frac{\sigma \models \mathrm{b} = \bot \quad \sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \bot} $$$$
+    \frac{\sigma \models \mathrm{b} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
+    \frac{\sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
+    \frac{\sigma \models \mathrm{b} = \top \quad \sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \top} $$$$
+    \frac{A! \in \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \top} \qquad
+    \frac{A! \notin \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \bot} \qquad
+    \frac{A? \in \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \top} \qquad
+    \frac{A? \notin \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \bot}
+$$
+{\bf
+TODO use the new boolean notation? $P, \sigma \models$ instead of just $\sigma \models$ } \\ 
+
+%Here are the rules for CHP:
+Continuing with the rules for statements in CHP:
+
+$$
+    % skip, assign, sequential and parallel composition rules
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P ; Q, \sigma \rangle \xrightarrow{\delta} \langle P' ; Q, \sigma' \rangle} \qquad
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P' || Q, \sigma' \rangle} \qquad
+    \frac{\langle Q, \sigma \rangle \xrightarrow{\delta} \langle Q', \sigma' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\delta} \langle P || Q', \sigma' \rangle} \qquad
+    \frac{}{\langle \mathtt{skip}; P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \ell}{\langle a := \mathrm{b}, \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip}, \sigma[a = \ell] \rangle} \qquad
+    \frac{}{\langle \mathtt{skip} || P, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} \qquad
+    \frac{}{\langle P || \mathtt{skip}, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle} $$$$
+    % selection rules
+    \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \; \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle [ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } \qquad
+    \frac{\sigma \models \mathrm{b}_i = \top} {\langle [ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i , \sigma\rangle  } $$$$
+    \frac{\sigma \models b_1 = \bot \wedge \ldots \wedge b_n = \bot}{\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma\rangle } \qquad
+    \frac{\sigma \models b_1 = \bot \wedge \ldots \wedge b_n = \bot}{\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle \mathtt{skip} , \sigma \rangle } $$$$
+%   \frac{\langle S, \sigma \rangle \xrightarrow{\tau} \langle P, \sigma \rangle}{\langle *S, \sigma \rangle \xrightarrow{\tau} \langle P;*S, \sigma \rangle} $$$$
+    \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    \frac{\sigma \models \mathrm{b}_i = \top} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
+    % communication rules
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad A!\ell \not \in \delta \quad A?a:\ell \not \in \delta}{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \top}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top] \rangle} \qquad
+    \frac{\sigma \models \mathrm{b} = \bot}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top] \rangle} $$$$
+    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top, a = \top] \rangle} \qquad
+    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top, a = \bot] \rangle} $$$$
+    %\frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
+    %\frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathsf{match}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle} $$$$
+    % bullet rules
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \top}{\langle \{A!\top \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top] \rangle} $$$$
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \bot}{\langle \{A!\bot \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top] \rangle} $$$$
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top, a = \top] \rangle} $$$$
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top, a = \top] \rangle} $$$$
+$$
+
+$\sigma$ is the environment, which in this case consists of a set of mappings of variables to values.
+We initialize $\sigma$ to include $A_a = \bot$, $A_t = \bot$, $A_f = \bot$ for all channels $A$.
+Furthermore, note that the labels on the transitions are sets, since we can have several channel operations occurring at once (via $\bullet$).
+
+{\bf
+TODO: probes are currently broken, and will always evaluate to false (since they are only `true' when the other process has performed a labeled transition, but before the react rule takes place; we can never actually be in this state. Should we use the old $\rho$ method to make probes work again?)
+We fixed this using some new boolean rules, but still need to come up with a good notation and add them to this document.
+}
+
+
+\section{LTS and HSE+ Equality}
+% Norris
+
+We want to show that the transitions of the LTS correspond to those of the HSE+.
+First, we start by giving a definition of \textbf{channel} and \textbf{channel action}.
+
+A \textbf{channel} is used for inter-process communication. All channels are
+uniquely identified using a capital letter, and there are two basic
+\textbf{channel actions} allowed on channels: sends (denoted using
+$A!\mathrm{b}$, which sends the boolean value b on channel $A$) and receives
+(denoted using $A?a$, which receives a sent value from channel $A$ and stores it
+in variable $a$). Sends and receives happen simultaneously; if a process
+attempts to send on a channel, it blocks until another process attempts to
+receive on that channel, at which point both actions occur simultaneously.
+Likewise, if a process attempts to receive on a channel, it blocks until another
+process attempts to send on that channel, at which point both actions occur
+simultaneously. Channel actions are program actions.
+
+Channels are \textbf{end-to-end}, which means that at most one process can ever
+send on any given channel, and at most one process can ever receive on any given
+channel (where ``process'' is defined by parallel composition: any two programs
+parallel composed with each other are treated as two separate processes).
+
+We also define \textbf{probes} on channels. The two probes are $\overline{A!}$
+and $\overline{A?}$; the former evaluates to $\top$ if a process is currently
+attempting to send on channel $A$, and $\bot$ otherwise, and the latter
+evaluates to $\top$ if a process is currently attempting to receive on channel
+$A$, and $\bot$ otherwise. Probes are boolean expressions, and in addition are
+exempt from the end-to-end restriction.
+
+Finally, we define the \textbf{bullet} operator. This operator operates on
+channel actions, and its semantics are as follows: for any two channel actions
+$C$ and $C'$, $C \bullet C'$ is a single channel action that completes when both
+$C$ and $C'$ complete simultaneously. So long as either one is blocked, $C
+\bullet C'$ is also blocked. Thus \textbf{bullet} enforces simultaneity.
+
+\vspace{0.1in}
+
+We begin the proof of correspondence by noting that for anything aside from
+probes and channel actions, since the transition rules are identical, it follows
+that the behavior is also identical. Thus we only need to show that the
+translations of channel actions and probes correspond to the definition above.
+Incidentally, due to the details of the hardware implementation, there are many
+programs that are valid in CHP, yet will not pass static analysis and thus
+cannot be translated into HSE+. We seek to prove the correctness of the
+translation only for programs that are both valid CHP and pass the static
+analyses.
+
+The translation of the two basic channel actions is the ``four-phase
+handshake'', which works as follows: every channel has three variables assigned
+to it. For a channel $A$, our translation rules name these as $A_a$, $A_t$, and
+$A_f$. Initially (i.e. when no channel action is being performed), all three of
+these variables are set to false. In addition, for each channel, we must pick
+one of the ends to be the active end, and the other to be the passive end. Thus
+there are two cases.
+
+If the sending end of the channel is chosen to be the passive end, then the
+four-phase handshake proceeds as follows: the receiving end of the channel,
+being the active end, initiates the handshake by setting $A_a$ to be true.  It
+then waits for data to be sent by checking for either $A_t$ or $A_f$ to be true.
+The sending end, being the passive end, waits for the handshake to be initiated
+by checking for $A_a$ to be true. It then initiates the send by setting either
+$A_t$ or $A_f$ to true, depending on which value is to be sent. The receiving
+end, upon receiving the data and setting $a$ to the appropriate value, indicates
+receipt by setting $A_a$ to be false; it then waits for the sending end to
+acknowledge the end of the handshake by checking for either $A_t$ or $A_f$ to be
+false again (at which point all three variables will have returned to their
+original, false states). The sending end, upon seeing the acknowledgement of
+receipt, sets $A_t$ and $A_f$ to be false again, thus ending the handshake. This
+handshake enforces simultaneity: if a process attempts to send without there
+being a receiver, then it will block until another process attempts to receive
+and sets $A_a$ to true. If a process attempts to receive without there being a
+sender, then it will set $A_a$ to true, but then block until another process
+sends a value by setting either $A_t$ or $A_f$ to be true. Finally, once the
+handshake is complete, $A_a$, $A_t$, and $A_f$ are all set to false once more,
+resetting the channel in preparation for another channel action.
+
+The translations for the case where the sending end is passive (i.e. $\rho
+\vDash A?$) are as follows:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot \\
+    A?a & \Rightarrow A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f]
+\end{flalign*}
+As can be seen, they exactly correspond to the description given above. Thus,
+the translations are correct in this case.
+
+If the receiving end of the channel is chosen to be the passive end, then the
+four-phase handshake proceeds as follows: the sending end of the channel,
+being the active end, initiates the handshake by setting either $A_t$ or $A_f$
+to be true, depending on which value is to be sent. It then waits for
+acknowledgement of receipt by checking for $A_a$ to be true. The receiving end,
+being the passive end, waits for the handshake to be initiated by checking for
+either $A_t$ or $A_f$ to be true. It then assigns $a$ to the appropriate value
+and acknowledges receipt by settings $A_a$ to be true. The sending end, upon
+receiving acknowledgement, indicates this by setting $A_t$ or $A_f$ to be false
+again, and waits for acknowledgement of termination of the handshake by waiting
+for $A_a$ to be false. Finally, the receiving end, upon seeing that $A_t$ or
+$A_f$ is false again, sets $A_a$ to be false, thus ending the handshake. This
+handshake enforces simultaneity: if a process attempts to send without there
+being a receiver, then it will set either $A_t$ or $A_f$ to true, but then block
+until another process acknowledges receipt by setting $A_a$. If a process
+attempts to receive without there being a sender, then it will block until
+another process attempts to send and sets either $A_t$ or $A_f$ to true.
+Finally, once the handshake is complete, $A_a$, $A_t$, and $A_f$ are all set to
+false once more, resetting the channel in preparation for another channel
+action.
+
+The translations for the case where the receiving end is passive (i.e. $\rho
+\vDash A!$) are as follows:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [A_a]; A_t := \bot; A_f := \bot; [\neg A_a] \\
+    A?a & \Rightarrow [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot
+\end{flalign*}
+As can be seen, they exactly correspond to the description given above. Thus,
+the translations are correct in this case.
+
+Next, we prove that the translations of the probes are correct. Due to
+limitations of the hardware implementation, we can only ever probe the active
+end of the channel, since the passive end makes no visible changes when it is
+blocked on a channel action. Thus, for a channel with a passive receiving end,
+the only probe allowed is a send probe ($\overline{A!}$); likewise, for a
+channel with a passive sending end, the only probe allowed is a receive probe
+($\overline{A?}$). Thus we only have one translation for each probe. The
+translations are as follows:
+\begin{flalign*}
+    \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+    \overline{A?} & \Rightarrow A_a \\
+\end{flalign*}
+The send probe will only ever be true at the very beginning of an active send:
+when a process attempts to send (by setting $A_t$ or $A_f$ to true). Likewise,
+the receive probe will only ever be true at the very beginning of an active
+receive: when a process attempts to receive (by setting $A_a$ to true). This
+behaviour corresponds to the definition of probe; thus, the translations are
+correct in the cases where they apply.
+
+
+\section{Equivalences under the LTS}
+% Stephen
+
+ 
+\subsection{Strong Bisimulation}
+
+Strong bisimulation is the strongest form of equivalence that we will discuss.
+For two programs to be strongly bisimilar means that they must both be able to
+simulate each other's labeled and unlabeled transitions. As this cannot allow
+for any new communication actions or new internal actions, the amount of
+parallelism that can be added is limited.
+
+\subsubsection{Selection Weakening}
+
+In the CHP language, there are two kinds of selection statement, one of which
+requires the designer to guarantee that all of the guard statements are mutually
+exclusive, and one which does not. They are known, respectively, as
+deterministic and non-deterministic selection statements. In both cases, if none
+of the guards are true (and it is not a repetitive selection statement), they
+will block. In the case of a repeated selection statement, if none of the
+guards are true, the program will skip over this statement. This behavior allows
+repeated selection statements to eventually terminate.
+
+The only difference between the two is that in the event that more than one
+guard is true, the nondeterministic selection statement will choose one of them.
+Therefore, it is always the case that a deterministic selection statement can be
+replaced with a nondeterministic selection statement without altering the LTS.
+
+For example, the CHP program:
+
+\begin{align*}
+&*[(C?c || D?d); \\
+& \;\;\;\;\;[ c \rightarrow A!d \\
+& \;\;\;\;\;\talloblong \lnot c \rightarrow B!d \\
+& \;\;\;]] \\
+\end{align*}
+
+Can be replaced by:
+
+\begin{align*}
+&*[(C?c || D?d); \\
+& \;\;\;\;\;[ c \rightarrow A!d \\
+& \;\;\;\;\;| \lnot c \rightarrow B!d \\
+& \;\;\;]] \\
+\end{align*}
+
+Without altering the LTS, and thereby preserving strong bisimilarity.
+
+This transformation is somewhat impractical, as a nondeterministic selection
+statement corresponds to additional circuit elements when synthesized.
+
+\subsubsection{Internal Renaming}
+
+Additionally, under strong bisimulation, we are allowed to rename any internal
+channels and variables, as long as we are consistent in doing so.
+
+This is trivially true, as all actions on internal channels and variables are
+only exposed to the LTS as $\tau$ actions, and therefore do not affect
+bisimilarity. 
+
+\subsection{Weak Bisimulation}
+
+Weak bisimulation is a form of bisimulation where only the labeled transitions
+are considered.
+
+\subsubsection{Process Decomposition}
+
+Process decomposition is a common parallelism-increasing CHP transformation.  In
+general, it involves taking programs of the form:
+
+\[
+...;S;...
+\]
+
+And decomposing them into ones of the form:
+
+\[
+(...;C;...) || *[[\bar{C} \rightarrow S; C]]
+\]
+
+Where C is a dataless channel action on a fresh channel (directionality has been
+omitted, as dataless sends and receives are symmetric modulo variable renaming).
+
+This transformation will only add a single $\tau$ action, as the channel C has
+been explicitly declared to be fresh.  However, this transformation will not add
+any additional parallelism, as all of the sequencing will be preserved. If we
+look at the labeled transition system of, and it consists only of $\tau$
+actions, then we can make an additional transformation:
+
+\[
+(...;C;...) || *[[\bar{C} \rightarrow C; S]]
+\]
+
+And now we have increased parallelism, as the statements in $S$ have been
+removed from the sequential execution path, and placed on a parallel one.
+
+To avoid shared variables, it may be the case that several statements must be decomposed at once, such as in:
+
+\[
+*[S_1; x := x + 1; S_2; [ c \rightarrow x := 0 [] \lnot c \rightarrow \texttt{skip} ]; S_3; A!x ] 
+\]
+
+Knowing that none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can move all of the actions on $x$ into a separate process resulting in:
+
+\begin{align*}
+& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& || *[[\;\bar{I} \rightarrow x := x + 1; I \\
+&\;\;\;\;\;\;[] \bar{J} \rightarrow x := 0; J \\
+&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&]]
+\end{align*}
+
+Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has been omitted. This process can be re-ordered into:
+
+\begin{align*}
+& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& || *[[\;\bar{I} \rightarrow I; x := x + 1 \\
+&\;\;\;\;\;\;[] \bar{J} \rightarrow J; x := 0 \\
+&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&]]
+\end{align*}
+
+As both of these systems only have one externally-visible channel action (on $A$), their labeled transition systems will be the same modulo additional $\tau$ transitions from the $I$, $J$, and $K$ internal channel actions. Note that we do need to know that $x$ does not occur in $S_1$, $S_2$ or $S_3$ for this to hold, as $c$ must not have any dependencies on $x$.
+
+\subsubsection{Slack Elasticity}
+
+In many designs, it may be necessary to add additional buffering to channels at a very late stage of design. Designs where adding buffering will not change the behavior are known as slack-elastic. Note that while you can always add more buffering to a slack-elastic design, you cannot always remove it. Specifically, one cannot always remove buffering from a channel, as that may introduce deadlock.
+
+\begin{itemize}
+
+\item {\bf Extending Slack on Non-Zero Slack Channels}
+
+Suppose process $P_1$ and $P_2$ are communicating over some FIFO-buffered channel A.  Adding additional buffering into this channel is tantamount to adding an additional $\tau$ action into the LTS.  Therefore, the system with the original channel A bisimulates the one with the extended channel. 
+
+\item {\bf Replacing Blocking Sends with Asynchronous Sends}
+
+A blocking send is one which will not proceed until its receiving side is ready. An asynchronous send is one that completes immediately, without waiting for the receive to be ready. The value that was to be send on the channel is then instead stored in a buffer, typically considered to be infinite size for the sake of simplicity.
+
+\begin{enumerate}
+
+\item Deterministic Programs
+
+Intuitively, the biggest change that comes with replacing blocking sends with asynchronous sends is that the receipt order and mutual exclusivity is no longer guaranteed.  For example, if we had a program of the form:
+
+\begin{align*}
+&*[A!\top; B!\!\perp] \\
+&|| *[[ \bar{A} \rightarrow A?y \\
+&\;\;\;\;\;\; [] \bar{B} \rightarrow B?y \\
+&\;\;]; C!y \\
+&]
+\end{align*}
+
+And $A$ and $B$ are blocking, unbuffered channels, then the rules of the deterministic selection statement will be obeyed, and this will behave as expected (sending alternatively $\top$ and $\perp$ on channel $C$).  However, if $A$ and $B$ are replaced with asynchronous sends, their probes are no longer mutually exclusive, and the behavior will be undefined. 
+
+If a program does not have probes, one cannot require mutual exclusivity of channel actions, (as this can only be observed with probes), and therefore, is slack elastic.
+
+\textbf{XXX}: This doesn't actually prove it using weak bisimulation.
+
+\item Maximally Non-Deterministic Programs
+
+As adding asynchronous channels can only increase the amount of non-determinism in the ordering, if a system is already maximally-nondeterministic, then adding asynchronous channels will not change anything.
+
+As probes are the only construct that can observe mutually exclusivity, we consider a system to be maximally non-deterministic if probes only exist in the guards of nondeterministic selection statements, and for every such selection statement there exists a trace where all of the guards are true.
+
+\textbf{XXX}: This doesn't actually prove it using weak bisimulation. 
+
+\end{enumerate}
+
+%\section{Weak Barbed Bisimulation}
+
+%As defined in "A Hierarchy of Equivalences of Asynchronous Calculi" by Fournet and Conthier:
+
+% In Intro claim to show that barbed equivalence is equal to labeled bisimilarity
+% barbs don't separate x<y> from x<z> in the pi calc
+% may testing -- preorder relation -- implementation can rule out some traces, but not exhibit traces whose behavior is not captured by their spec
+%	Says nothing of the presence of suitable behaviors
+
+%Weak barbed bisimulation is
+
+\end{itemize}
+
+\section{Conclusions}
+% All
+
+\end{document}
