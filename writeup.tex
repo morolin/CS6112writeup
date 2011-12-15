@@ -32,8 +32,7 @@
 \section{Introduction and Overview}
 % Stephen
 
-This semester, we took the course CS6112, and applied the principles from that
-course, along with conventional PL theory reasoning to the Communicating
+In this project, we apply conventional PL theory reasoning to the Communicating
 Hardware Processes (CHP) language used by the Asynchronous VLSI group at
 Cornell. 
 
@@ -94,8 +93,8 @@ manufacturing process.
 
 Alternatively, there exist several classes of {\it asynchronous} circuits, which
 do not have the same clocking behavior, instead having the all of the
-synchronization performmed locally. These circuits have the advantages of
-granting average case performance, and being more eaisly to formally verify. In
+synchronization performed locally. These circuits have the advantages of
+granting average case performance, and being more easily to formally verify. In
 this document, we will be focusing on the {\it Quasi Delay Insensitive} class of
 asynchronous circuits, commonly viewed to be the ``most asynchronous'' class,
 that makes the fewest assumptions about the underlying hardware.
@@ -121,17 +120,17 @@ variables are identical, but the next action is not.  These are removed either
 by inserting additional program variables ({\it state variables} or by
 rearranging actions in such a way that the states become non-conflicting.
 
-This program precicely describes a set of transitions between states.  To
+This program precisely describes a set of transitions between states.  To
 synthesize the program into circuits, a minimal guard set, known as the
 {\it production rule set}, is found, and then transformed to be
 CMOS-implementable. 
 
-This semantics of this synthesis process were described in Marcel Renévan der
+This semantics of this synthesis process were described in Marcel Ren\'{e} van der
 Goot's 1995 Phd thesis "Semantics of VLSI Synthesis", but were done in a
 trace-theory based operational semantics significantly different from what is in
 use in contemporary PL research, making it difficult to translate techniques
 from current research into this field. Some methods for reasoning about the
-complilation process have been proposed, such as Manohar's {\it Behaviors},
+compilation process have been proposed, such as Manohar's {\it Behaviors},
 introduced in the paper ``Slack Elasticity in Concurrent Computing'', but those
 were again trace-based.
 
