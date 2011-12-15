@@ -629,7 +629,7 @@ that the behavior is also identical. Thus we only need to show that the
 translations of channel actions and probes correspond to the definition above.
 Incidentally, due to the details of the hardware implementation, there are many
 programs that are valid in CHP, yet will not pass static analysis and thus
-cannot be translated into HSE+. We seek to prove the correctness of the
+cannot be translated into HSE+. We will discuss the correctness of the
 translation only for programs that are both valid CHP and pass the static
 analyses.
 
@@ -716,16 +716,16 @@ channels in the bullet; to be specific, we can allow at most one channel in the
 set to be active, and the rest must be passive. In the case of $n$ passive
 channels $A_1, \ldots, A_n$, the translation for $A_1! \bullet \ldots \bullet
 A_n!$ is:
-$$[{A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+$$[{A_a}_1 \wedge \ldots \wedge {A_a}_n]; {A_b}_1 := \top; \ldots; {A_b}_n := \top; [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; {A_b}_1 := \bot; \ldots; {A_b}_n := \bot$$
 In the case of one active channel $B$ and $n$ passive channels $A_1, \ldots,
 A_n$, the translation for $A_1! \bullet \ldots \bullet A_i! \bullet B \bullet
 A_{i + 1}! \bullet \ldots \bullet A_n!$ is:
-$$B_a := \top; [B_b \wedge {A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; B_a := \bot; [\neg B_b]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+$$B_a := \top; [B_b \wedge {A_a}_1 \wedge \ldots \wedge {A_a}_n]; {A_b}_1 := \top; \ldots; {A_b}_n := \top; [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; B_a := \bot; [\neg B_b]; {A_b}_1 := \bot; \ldots; {A_b}_n := \bot$$
 
 We will start with the first case, when all of the channels are passive.
 Clearly, the translation implements the four-phase handshake: for each channel
-$A_i$, we first wait for ${A_i}_a$ to go high, then we set ${A_i}_b$ to high and
-wait for ${A_i}_a$ to go low, and finally we set ${A_i}_b$ to low. We also
+$A_i$, we first wait for ${A_a}_i$ to go high, then we set ${A_b}_i$ to high and
+wait for ${A_a}_i$ to go low, and finally we set ${A_b}_i$ to low. We also
 perform the last step simultaneously for all channels, thus fitting the
 definition of bullet.
 
@@ -733,12 +733,12 @@ For the second case, we complete all of the passive channel actions correctly
 and simultaneously for the same reasons as in the first case. For channel $B$,
 we again implement the four-phase handshake: we first set $B_a$ to high, then we
 wait for $B_b$ to go high, then we set $B_a$ to low, and finally we wait for
-$B_b$ to go low. We wait until $B_b$ is low before setting each of the ${A_i}_b$
+$B_b$ to go low. We wait until $B_b$ is low before setting each of the ${A_b}_i$
 to low, thus completing all channel actions simultaneously.
 
 \vspace{0.05in}
 
-Next, we prove that the translations of the probes are correct. Due to
+Next, we argue that the translations of the probes are correct. Due to
 limitations of the hardware implementation, we can only ever probe the active
 end of the channel, since the passive end makes no visible changes when it is
 blocked on a channel action. Thus, for a channel with a passive receiving end,
