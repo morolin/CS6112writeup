@@ -32,13 +32,16 @@
 \section{Introduction and Overview}
 % Stephen
 
-This semester, we took the course CS6112, and applied the principles from that course, along with conventional PL theory reasoning to the Communicating Hardware Processes language used by the Asynchronous VLSI group at Cornell. 
+This semester, we took the course CS6112, and applied the principles from that course, along with conventional PL theory reasoning to the Communicating Hardware Processes (CHP) language used by the Asynchronous VLSI group at Cornell. 
 
 Our first observation was that the CHP language is compiled down to the handshaking expansion (HSE) language as the first step of the compilation process, and HSE has far fewer primitives.  Therefore, we defined each construct in CHP as being built of HSE primitives, and then reasoned about these simpler structures.
 
-However, we wanted to reason about programs in the CHP language, and do so in a way consistent with the calculi that we had been learning about in class.  Therefore, we built a labeled transition system in the CHP language, and discussed how it related to the HSE operational semantics that we had defined.
+When doing so, we observed that there were several programs that were expressible in the CHP language, but not implementable in the HSE language, or in the final hardware synthesis.  These 
+
+Additionally, we wanted to reason about programs in the CHP language in a way consistent with the calculi that we had been learning about in class.  Therefore, we built a labeled transition system in the CHP language, and discussed how it related to the HSE operational semantics that we had defined.
 
 Once we had defined the LTS semantics, we were able to use it to reason about simple equivalences.
+
 
 \section{Asynchronous Computing}
 % Stephen
@@ -74,13 +77,13 @@ As convention, variables are ranged over by lowercase letters, $a, b, c
 \ldots$, channels are ranged over by uppercase letters from the beginning of
 the alphabet, $A, B, C \ldots$ ,  and programs or program segments are ranged
 over by uppercase letters from the second half of the alphabet, $P, Q, R
-\ldots$
+\ldots$.  When we violate this convention, it will be explicitly mentioned.
 
 \begin{itemize}
 
 \item \textbf{Skip}: $\Skip$.  This statement does nothing.
 
-\item \textbf{Assignment}: $x := E$.  This statement means ``assign the value
+\item \textbf{Assignment}: $x := E$, where $E$ is some Boolean expression.  This statement means ``assign the value
 of $E$ to $x$.'' The statements $x\uparrow$ and $x\downarrow$ are shorthand for $x := \true$
 and $x := \false$, respectively.
 
@@ -88,11 +91,11 @@ and $x := \false$, respectively.
 $e$ over channel $A$,'' and $B?x$ means ``receive a value over channel $B$ and
 store it in variable $x$.''  Both sending and receiving are blocking.
 
-\item \textbf{Probe}: The boolean $\overline{A}$ is true if and only if a communication
+\item \textbf{Probe}: The Boolean $\overline{A}$ is true if and only if a communication
 on channel $A$ can complete without suspending.
 
 \item \textbf{Selection}: $[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow P_n]$,
-where each $G_i$ is a boolean expression, and each $P_i$ is a statement.  This
+where each $G_i$ is a Boolean expression, and each $P_i$ is a statement.  This
 statement is executed by waiting for one of the guards to be true, and then
 executing one statement with a true guard.  If the guards are not mutually
 exclusive, we use the thin bar ($|$) instead of the thick bar ($\talloblong$). $[G]$ is
@@ -121,12 +124,11 @@ simultaneously.''
 % Alec
 
 The CHP that existing users expect has too many primitives to model cleanly,
-having both shared variables and channels, and the channels support
-multi-channel synchronization, and peeking at channel values and state.  Rather
-than model CHP directly, we propose modeling a weaker language, HSE+ which
+having both implicitly shared variables and channels. These channels are complex, supporting
+multi-channel synchronization and peeking at channel state.  Rather
+than model the whole of CHP directly, we propose modeling a weaker language, HSE+ which
 contains only the shared variables and selection statements from CHP, making it
-much closer to HSE, although it assumes distinguishable states which HSE does
-not.
+much closer to HSE, although it assumes implicitly distinguishable states where HSE requires states to be explicitly distinguishable.
 
 \subsection{Grammar}
 \begin{align*}
@@ -168,7 +170,7 @@ not.
     {\sigma \models b_1 \lor b_2 = \ell_1 \lor \ell_2}
 \end{mathpar}
 
-Behavior of a boolean statement containing an uninitialized variable is
+Behavior of a Boolean statement containing an uninitialized variable is
 undefined, but if a process is of type $(\emptyset, w)$ (see Type System,
 below), then this will never happen.
 
@@ -271,7 +273,7 @@ active end and a passive end for each channel in order to translate into HSE+.
 We decide which end of the channel (the sending end or the receiving end) should
 be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$
 having its sending end active, and $\rho \vDash A?$ the channel $A$ having its
-receiving end active.  For simplicity, we restrict all channels to be 1-bit
+receiving end active.  For simplicity, we restrict all channels to be Boolean
 channels. We also enforce channel end-to-endness and decide the scope of
 channels (i.e. minimum enclosing scope outside of which no process ever
 performs a send or receive on that channel).
@@ -339,7 +341,7 @@ TODO: proof for bullet here
 In the physical reality of implementing our language on hardware, if we ever
 have two concurrent programs that write two different values to the same
 variable simultaneously, we will connect voltage to ground through the variable,
-which is a short circuit, and will cause the circuit to literally catch fire.
+which is a short circuit, and may cause the circuit to literally catch fire.
 To prevent this from happening, we provide a static analysis method that tracks
 which variables a program may write to, and prohibits parallel processes from
 writing to the same variables.  Because HSE+ is Turing-complete modulo infinite
@@ -353,8 +355,8 @@ implementing CHP in HSE+, it also allows us to provide a guarantee that at
 least certain obvious cases of communication via non-channel shared variables is
 not occurring.
 
-A process or boolean has a \emph{footprint} assigned to it if it does not
-contain the possibility of simultaneous writes.  A boolean's footprint is simply
+A process or Boolean has a \emph{footprint} assigned to it if it does not
+contain the possibility of simultaneous writes.  A Boolean's footprint is simply
 the set of variables it reads from, and a process's footprint is a pair $(r,
 w)$, where $w$ is the set of variables it writes to, and $r$ is the set of
 variables that the process reads from before it could possibly have written to
@@ -420,6 +422,16 @@ The third requirement of the \textsc{Parallel} rule prevents fires; if the write
 sets of both parallel programs do not overlap, then they cannot write to the
 same variables, and we will not have short circuits.
 
+We have written a program to perform this check, and tested it on several non-trivial circuits.
+
+\section{Passive vs Active Channels}
+
+{\bf XXX: Finish this section}
+
+Channels need to determine if they are passive or active before they can be implemented.  If a channel is probed, or if it is part of a bullet-composed action restricts which of these it can be implemented by. Specifically, all probed channels must be passive, and out of all bullet-composed actions, only one can be active.  To solve this is 2-sat.  
+
+We have created a program to perform this check, and tested it on several non-trivial CHP programs.
+
 \section{Labeled Transition System for CHP}
 % Norris
 We begin by defining a ternary relation and a function. First, we define
@@ -448,7 +460,7 @@ Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
     \mathsf{head}(P) & = \varnothing \quad \text{for any other program $P$}
 \end{flalign*}
 
-We start with the boolean reduction rules. Here, $P, \sigma$ are the enclosing
+We start with the Boolean reduction rules. Here, $P, \sigma$ are the enclosing
 program $P$ and the current environment $\sigma$, respectively.
 $$
     \frac{}{P, \sigma \models \ell = \ell} \qquad
@@ -466,7 +478,7 @@ $$
     \frac{A? \notin \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \bot}
 $$
 {\bf
-TODO use the new boolean notation? $P, \sigma \models$ instead of just $\sigma \models$ } \\ 
+TODO use the new Boolean notation? $P, \sigma \models$ instead of just $\sigma \models$ } \\ 
 
 %Here are the rules for CHP:
 Continuing with the rules for statements in CHP:
@@ -510,12 +522,14 @@ Furthermore, note that the labels on the transitions are sets, since we can have
 
 {\bf
 TODO: probes are currently broken, and will always evaluate to false (since they are only `true' when the other process has performed a labeled transition, but before the react rule takes place; we can never actually be in this state. Should we use the old $\rho$ method to make probes work again?)
-We fixed this using some new boolean rules, but still need to come up with a good notation and add them to this document.
+We fixed this using some new Boolean rules, but still need to come up with a good notation and add them to this document.
 }
 
 
 \section{LTS and HSE+ Equality}
 % Norris
+
+{\bf XXX: Why are channel and channel action in bold? }
 
 We want to show that the transitions of the LTS correspond to those of the HSE+.
 First, we start by giving a definition of \textbf{channel} and \textbf{channel action}.
@@ -523,7 +537,7 @@ First, we start by giving a definition of \textbf{channel} and \textbf{channel a
 A \textbf{channel} is used for inter-process communication. All channels are
 uniquely identified using a capital letter, and there are two basic
 \textbf{channel actions} allowed on channels: sends (denoted using
-$A!\mathrm{b}$, which sends the boolean value b on channel $A$) and receives
+$A!\mathrm{b}$, which sends the Boolean value b on channel $A$) and receives
 (denoted using $A?a$, which receives a sent value from channel $A$ and stores it
 in variable $a$). Sends and receives happen simultaneously; if a process
 attempts to send on a channel, it blocks until another process attempts to
@@ -541,7 +555,7 @@ We also define \textbf{probes} on channels. The two probes are $\overline{A!}$
 and $\overline{A?}$; the former evaluates to $\top$ if a process is currently
 attempting to send on channel $A$, and $\bot$ otherwise, and the latter
 evaluates to $\top$ if a process is currently attempting to receive on channel
-$A$, and $\bot$ otherwise. Probes are boolean expressions, and in addition are
+$A$, and $\bot$ otherwise. Probes are Boolean expressions, and in addition are
 exempt from the end-to-end restriction.
 
 Finally, we define the \textbf{bullet} operator. This operator operates on
