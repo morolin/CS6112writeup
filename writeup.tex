@@ -317,10 +317,10 @@ channel actions in CHP.
     \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ ]& \qquad \rho \vDash C_1!, C_2?
       \end{matrix} \right.  \\
       %%% Bulleted send, both passive
-          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
+          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
     \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) ]& \; \rho \vDash C_1?, C_2? \\
     %%% Bulleted send, one active
-    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
     \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ] & \; \rho \vDash C_1?, C_2!
       \end{matrix} \right. \\
       %%% Bulleted send/recieve, both passive
@@ -335,21 +335,8 @@ channel actions in CHP.
       \end{matrix} \right. 
 \end{align*}
 
-Here, $A_a, A_t, A_f$ are three new variables that we create for the purposes of
-translating actions on channel $A$ into HSE+.
-
-Above, the probe syntax only details when you have two channels combined
-together with a bullet.  If you are combining any more, they must be passive.
-Their first two actions (a wait and a set) will execute in parallel with all
-others, then the second wait will be put into the combined AND wait, and their
-set will be done in parallel.
-
 We will use $\{A!\mathrm{b}\}$ and $\{A?a\}$ as shorthand for either translation
 of $A!\mathrm{b}$ and $A?a$, respectively.
-
-{\bf
-TODO: proof for bullet here
-}
 
 \section{Restrictions and Static Analysis}
 %Alec
@@ -467,11 +454,6 @@ $$
     \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta \cup \{A!\ell\}, \delta' \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell\}) \in \mathsf{match}}
 $$
 
-{\bf TODO
-We do not explicitly forbid things like $A!\top \bullet A?a$ and $A?a \bullet
-B?a$ here; perhaps we should? The second one will be caught by static checking,
-at least (since it causes fires\ldots). }
-
 Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
 2^{\mathbf{ChannelActions}}$ as follows:
 \begin{flalign*}
@@ -489,24 +471,23 @@ program $P$ and the current environment $\sigma$, respectively.
 $$
     \frac{}{P, \sigma \models \ell = \ell} \qquad
     \frac{[a = \ell] \in \sigma}{P, \sigma \models a = \ell} \qquad
-    \frac{\sigma \models \mathrm{b} = \ell}{\sigma \models \neg \mathrm{b} = \neg \ell} $$$$
-    \frac{\sigma \models \mathrm{b} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
-    \frac{\sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \top} \qquad
-    \frac{\sigma \models \mathrm{b} = \bot \quad \sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \vee \mathrm{b'} = \bot} $$$$
-    \frac{\sigma \models \mathrm{b} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
-    \frac{\sigma \models \mathrm{b'} = \bot}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \bot} \qquad
-    \frac{\sigma \models \mathrm{b} = \top \quad \sigma \models \mathrm{b'} = \top}{\sigma \models \mathrm{b} \wedge \mathrm{b'} = \top} $$$$
+    \frac{P, \sigma \models \mathrm{b} = \ell}{P, \sigma \models \neg \mathrm{b} = \neg \ell} $$$$
+    \frac{P, \sigma \models \mathrm{b} = \top}{P, \sigma \models \mathrm{b} \vee \mathrm{b}' = \top} \qquad
+    \frac{P, \sigma \models \mathrm{b}' = \top}{P, \sigma \models \mathrm{b} \vee \mathrm{b}' = \top} \qquad
+    \frac{P, \sigma \models \mathrm{b} = \bot \quad P, \sigma \models \mathrm{b}' = \bot}{P, \sigma \models \mathrm{b} \vee \mathrm{b'} = \bot} $$$$
+    \frac{P, \sigma \models \mathrm{b} = \bot}{P, \sigma \models \mathrm{b} \wedge \mathrm{b}' = \bot} \qquad
+    \frac{P, \sigma \models \mathrm{b}' = \bot}{P, \sigma \models \mathrm{b} \wedge \mathrm{b}' = \bot} \qquad
+    \frac{P, \sigma \models \mathrm{b} = \top \quad P, \sigma \models \mathrm{b}' = \top}{P, \sigma \models \mathrm{b} \wedge \mathrm{b'} = \top} $$$$
     \frac{A! \in \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \top} \qquad
     \frac{A! \notin \mathsf{head}(P)}{P, \sigma \models \overline{A!} = \bot} \qquad
     \frac{A? \in \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \top} \qquad
     \frac{A? \notin \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \bot}
 $$
-{\bf
-TODO use the new Boolean notation? $P, \sigma \models$ instead of just $\sigma
-\models$ } \\ 
 
 %Here are the rules for CHP:
-Continuing with the rules for statements in CHP:
+Continuing with the rules for statements in CHP (we use $\sigma \models$ as
+shorthand for $P, \sigma \models$ to avoid having to write the entire text
+of the program over and over again):
 
 $$
     % skip, assign, sequential and parallel composition rules
@@ -547,26 +528,16 @@ variables to values.  We initialize $\sigma$ to include $A_a = \bot$, $A_t =
 the transitions are sets, since we can have several channel operations occurring
 at once (via $\bullet$).
 
-{\bf TODO: probes are currently broken, and will always evaluate to false (since
-they are only `true' when the other process has performed a labeled transition,
-but before the react rule takes place; we can never actually be in this state.
-Should we use the old $\rho$ method to make probes work again?) We fixed this
-using some new Boolean rules, but still need to come up with a good notation and
-add them to this document.  }
-
-
 \section{LTS and HSE+ Equality}
 % Norris
 
-{\bf XXX: Why are channel and channel action in bold? }
-
 We want to show that the transitions of the LTS correspond to those of the HSE+.
-First, we start by giving a definition of \textbf{channel} and \textbf{channel
+First, we start by giving a definition of \textit{channel} and \textit{channel
 action}.
 
-A \textbf{channel} is used for inter-process communication. All channels are
+A \textit{channel} is used for inter-process communication. All channels are
 uniquely identified using a capital letter, and there are two basic
-\textbf{channel actions} allowed on channels: sends (denoted using
+\textit{channel actions} allowed on channels: sends (denoted using
 $A!\mathrm{b}$, which sends the Boolean value b on channel $A$) and receives
 (denoted using $A?a$, which receives a sent value from channel $A$ and stores it
 in variable $a$). Sends and receives happen simultaneously; if a process
@@ -576,23 +547,23 @@ Likewise, if a process attempts to receive on a channel, it blocks until another
 process attempts to send on that channel, at which point both actions occur
 simultaneously. Channel actions are program actions.
 
-Channels are \textbf{end-to-end}, which means that at most one process can ever
+Channels are \textit{end-to-end}, which means that at most one process can ever
 send on any given channel, and at most one process can ever receive on any given
 channel (where ``process'' is defined by parallel composition: any two programs
 parallel composed with each other are treated as two separate processes).
 
-We also define \textbf{probes} on channels. The two probes are $\overline{A!}$
+We also define \textit{probes} on channels. The two probes are $\overline{A!}$
 and $\overline{A?}$; the former evaluates to $\top$ if a process is currently
 attempting to send on channel $A$, and $\bot$ otherwise, and the latter
 evaluates to $\top$ if a process is currently attempting to receive on channel
 $A$, and $\bot$ otherwise. Probes are Boolean expressions, and in addition are
 exempt from the end-to-end restriction.
 
-Finally, we define the \textbf{bullet} operator. This operator operates on
+Finally, we define the \textit{bullet} operator. This operator operates on
 channel actions, and its semantics are as follows: for any two channel actions
 $C$ and $C'$, $C \bullet C'$ is a single channel action that completes when both
 $C$ and $C'$ complete simultaneously. So long as either one is blocked, $C
-\bullet C'$ is also blocked. Thus \textbf{bullet} enforces simultaneity.
+\bullet C'$ is also blocked. Thus bullet enforces simultaneity.
 
 \vspace{0.1in}
 
@@ -673,6 +644,43 @@ The translations for the case where the receiving end is passive (i.e. $\rho
 \end{flalign*}
 As can be seen, they exactly correspond to the description given above. Thus,
 the translations are correct in this case.
+
+\vspace{0.05in}
+
+In the case of bullet, to keep things simple, we will only look at dataless
+channels. The channels can easily be extended to send and receive data by
+replacing one or both of the channel communication variables with a set of
+variables. Since we are only dealing with dataless channels, we will use $A!$ to
+indicate communication on a channel $A$ for either end (as the ends are now
+equivalent); we also use $A_a$ and $A_b$ as the two communication variables for
+$A$.
+
+In order to enforce simultaneity, we must place some restrictions on the set of
+channels in the bullet; to be specific, we can allow at most one channel in the
+set to be active, and the rest must be passive. In the case of $n$ passive
+channels $A_1, \ldots, A_n$, the translation for $A_1! \bullet \ldots \bullet
+A_n!$ is:
+$$[{A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+In the case of one active channel $B$ and $n$ passive channels $A_1, \ldots,
+A_n$, the translation for $A_1! \bullet \ldots \bullet A_i! \bullet B \bullet
+A_{i + 1}! \bullet \ldots \bullet A_n!$ is:
+$$B_a := \top; [B_b \wedge {A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; B_a := \bot; [\neg B_b]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+
+We will start with the first case, when all of the channels are passive.
+Clearly, the translation implements the four-phase handshake: for each channel
+$A_i$, we first wait for ${A_i}_a$ to go high, then we set ${A_i}_b$ to high and
+wait for ${A_i}_a$ to go low, and finally we set ${A_i}_b$ to low. We also
+perform the last step simultaneously for all channels, thus fitting the
+definition of bullet.
+
+For the second case, we complete all of the passive channel actions correctly
+and simultaneously for the same reasons as in the first case. For channel $B$,
+we again implement the four-phase handshake: we first set $B_a$ to high, then we
+wait for $B_b$ to go high, then we set $B_a$ to low, and finally we wait for
+$B_b$ to go low. We wait until $B_b$ is low before setting each of the ${A_i}_b$
+to low, thus completing all channel actions simultaneously.
+
+\vspace{0.05in}
 
 Next, we prove that the translations of the probes are correct. Due to
 limitations of the hardware implementation, we can only ever probe the active

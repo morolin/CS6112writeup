@@ -62,10 +62,11 @@ performs a send or receive on that channel).
     \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ ]& \qquad \rho \vDash C_1!, C_2?
       \end{matrix} \right.  \\
       %%% Bulleted send, both passive
-          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
+          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [
+          ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
     \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) ]& \; \rho \vDash C_1?, C_2? \\
     %%% Bulleted send, one active
-    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
     \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ] & \; \rho \vDash C_1?, C_2!
       \end{matrix} \right. \\
       %%% Bulleted send/recieve, both passive
@@ -291,6 +292,43 @@ The translations for the case where the receiving end is passive (i.e. $\rho
 \end{flalign*}
 As can be seen, they exactly correspond to the description given above. Thus,
 the translations are correct in this case.
+
+\vspace{0.05in}
+
+In the case of bullet, to keep things simple, we will only look at dataless
+channels. The channels can easily be extended to send and receive data by
+replacing one or both of the channel communication variables with a set of
+variables. Since we are only dealing with dataless channels, we will use $A!$ to
+indicate communication on a channel $A$ for either end (as the ends are now
+equivalent); we also use $A_a$ and $A_b$ as the two communication variables for
+$A$.
+
+In order to enforce simultaneity, we must place some restrictions on the set of
+channels in the bullet; to be specific, we can allow at most one channel in the
+set to be active, and the rest must be passive. In the case of $n$ passive
+channels $A_1, \ldots, A_n$, the translation for $A_1! \bullet \ldots \bullet
+A_n!$ is:
+$$[{A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+In the case of one active channel $B$ and $n$ passive channels $A_1, \ldots,
+A_n$, the translation for $A_1! \bullet \ldots \bullet A_i! \bullet B \bullet
+A_{i + 1}! \bullet \ldots \bullet A_n!$ is:
+$$B_a := \top; [B_b \wedge {A_1}_a \wedge \ldots \wedge {A_n}_a]; {A_1}_b := \top; \ldots; {A_n}_b := \top; [\neg {A_1}_a \wedge \ldots \wedge \neg {A_n}_a]; B_a := \bot; [\neg B_b]; {A_1}_b := \bot; \ldots; {A_n}_b := \bot$$
+
+We will start with the first case, when all of the channels are passive.
+Clearly, the translation implements the four-phase handshake: for each channel
+$A_i$, we first wait for ${A_i}_a$ to go high, then we set ${A_i}_b$ to high and
+wait for ${A_i}_a$ to go low, and finally we set ${A_i}_b$ to low. We also
+perform the last step simultaneously for all channels, thus fitting the
+definition of bullet.
+
+For the second case, we complete all of the passive channel actions correctly
+and simultaneously for the same reasons as in the first case. For channel $B$,
+we again implement the four-phase handshake: we first set $B_a$ to high, then we
+wait for $B_b$ to go high, then we set $B_a$ to low, and finally we wait for
+$B_b$ to go low. We wait until $B_b$ is low before setting each of the ${A_i}_b$
+to low, thus completing all channel actions simultaneously.
+
+\vspace{0.05in}
 
 Next, we prove that the translations of the probes are correct. Due to
 limitations of the hardware implementation, we can only ever probe the active
