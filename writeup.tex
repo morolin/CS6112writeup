@@ -771,7 +771,7 @@ Can be replaced by:
 & \;\;\;]] \\
 \end{align*}
 
-Without altering the LTS, and thereby preserving strong bisimilarity.
+Without altering the LTS, and therefore, these two programs are bisimilar.
 
 This transformation is somewhat impractical, as a nondeterministic selection
 statement corresponds to additional circuit elements when synthesized.
@@ -854,7 +854,8 @@ As both of these systems only have one externally-visible channel action (on
 $A$), their labeled transition systems will be the same modulo additional $\tau$
 transitions from the $I$, $J$, and $K$ internal channel actions. Note that we do
 need to know that $x$ does not occur in $S_1$, $S_2$ or $S_3$ for this to hold,
-as $c$ must not have any dependencies on $x$.
+as $c$ must not have any dependencies on $x$. However, given that all of these
+conditions hold, this final process will weakly bisimulate the original process.
 
 \subsubsection{Slack Elasticity}
 
@@ -870,9 +871,9 @@ deadlock.
 \item {\bf Extending Slack on Non-Zero Slack Channels}
 
 Suppose process $P_1$ and $P_2$ are communicating over some FIFO-buffered
-channel A.  Adding additional buffering into this channel is tantamount to
+channel $A$.  Adding additional buffering into this channel is tantamount to
 adding an additional $\tau$ action into the LTS.  Therefore, the system with the
-original channel A bisimulates the one with the extended channel. 
+original channel $A$ weakly bisimulates the one with the extended channel. 
 
 \item {\bf Replacing Blocking Sends with Asynchronous Sends}
 
@@ -906,9 +907,8 @@ mutually exclusive, and the behavior will be undefined.
 
 If a program does not have probes, one cannot require mutual exclusivity of
 channel actions, (as this can only be observed with probes), and therefore, is
-slack elastic.
-
-%\textbf{XXX}: This doesn't actually prove it using weak bisimulation.
+slack elastic, meaning two programs, one with synchronous channels, and another
+with asynchronous channels will weakly bisimulate each other.
 
 \item Maximally Non-Deterministic Programs
 
