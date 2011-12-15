@@ -62,13 +62,13 @@ semantics, we were able to use it to reason about simple equivalences.
 % during the time where these units are latching.  Clock cannot be faster than
 % the worst-case performance of any unit it synchronizes
 
-Most modern computation is done using a {\it synchronous } methodology, where
-there is a global {\it clock} that is used to synchronize between different
-computational units.  Each computational unit guarantees that their signals will
-be valid and ready to be used by the next stage by the end of the clock period,
-though they need not make any guarantees about the signal before that point.  At
-the end of each clock period, the signals are stored in state-holding elements
-to be used for the next period of computation. 
+Most modern computation is done using a synchronous methodology, where there is
+a global clock that is used to synchronize between different computational
+units.  Each computational unit guarantees that their signals will be valid and
+ready to be used by the next stage by the end of the clock period, though they
+need not make any guarantees about the signal before that point.  At the end of
+each clock period, the signals are stored in state-holding elements to be used
+for the next period of computation. 
 
 In designing these circuits, a designer must take care that no computation ever
 takes longer than the clock period to complete. Because this relies on
@@ -90,38 +90,37 @@ manufacturing process.
 % done has been based on trace-theory semantics Possible to reason about systems
 % in a single-step semantics form
 
-Alternatively, there exist several classes of {\it asynchronous} circuits, which
+Alternatively, there exist several classes of asynchronous circuits, which
 do not have the same clocking behavior, instead having the all of the
 synchronization performed locally. These circuits have the advantages of
 granting average case performance, and being more easily to formally verify. In
-this document, we will be focusing on the {\it Quasi Delay Insensitive} class of
+this document, we will be focusing on the \emph{Quasi Delay Insensitive} class of
 asynchronous circuits, commonly viewed to be the ``most asynchronous'' class,
 that makes the fewest assumptions about the underlying hardware.
 
 One requirement of circuit behaviors that makes designing asynchronous hardware
 more challenging is the fact that because synchronization is done locally, and
 thereby done with locally generated signals. For this synchronization to happen
-correctly, these signals must not have {\it glitches}, or signals which appear
+correctly, these signals must not have glitches --- signals which appear
 to transition, but in actuality do not. One way to guarantee this is to be
 certain that any transition that can occur will eventually occur, forcing the
 system to be strongly confluent.
 
 A methodology which guarantees this property for QDI asynchronous circuits is
-Alain Martin's synthesis method, commonly known as {\it Martin Synthesis}.  In
-this process, you begin with a high-level description of the desired system in the
-{\it Communicating Hardware Processes } language, a derivative of Hoare's CSP,
-and make parallelism-increasing transformations to turn it into a massively
-parallel system. This system is then projected down onto only actions on Boolean
-shared variables, through the process known as {\it handshaking expansion}. Once
-it has been expanded, all {\it conflicting} states are removed, where
-conflicting states are defined as ones where the assignments to program
-variables are identical, but the next action is not.  These are removed either
-by inserting additional program variables ({\it state variables} or by
-rearranging actions in such a way that the states become non-conflicting.
+Alain Martin's synthesis method.  In this process, you begin with a high-level
+description of the desired system in the \emph{Communicating Hardware Processes}
+language, a derivative of Hoare's CSP, and make parallelism-increasing
+transformations to turn it into a massively parallel system. This system is then
+projected down onto only actions on Boolean shared variables, through the
+process known as \emph{handshaking expansion}. Once it has been expanded, all
+\emph{conflicting} states are removed, where conflicting states are defined as
+ones where the assignments to program variables are identical, but the next
+action is not.  These are removed either by inserting additional state variables
+or by rearranging actions in such a way that the states become non-conflicting.
 
 This program precisely describes a set of transitions between states.  To
 synthesize the program into circuits, a minimal guard set, known as the
-{\it production rule set}, is found, and then transformed to be
+\emph{production rule set}, is found, and then transformed to be
 CMOS-implementable. 
 
 This semantics of this synthesis process were described in Marcel Ren\'{e} van der
@@ -129,7 +128,7 @@ Goot's 1995 Phd thesis "Semantics of VLSI Synthesis", but were done in a
 trace-theory based operational semantics significantly different from what is in
 use in contemporary PL research, making it difficult to translate techniques
 from current research into this field. Some methods for reasoning about the
-compilation process have been proposed, such as Manohar's {\it Behaviors},
+compilation process have been proposed, such as Manohar's \emph{Behaviors},
 introduced in the paper ``Slack Elasticity in Concurrent Computing'', but those
 were again trace-based.
 
@@ -150,8 +149,8 @@ When we violate this convention, it will be explicitly mentioned.
 
 \item \textbf{Skip}: $\Skip$.  This statement does nothing.
 
-\item \textbf{Assignment}: $x := E$, where $E$ is some Boolean expression.  This
-statement means ``assign the value of $E$ to $x$.'' The statements $x\uparrow$
+\item \textbf{Assignment}: $x := b$, where $b$ is some Boolean expression.  This
+statement means ``assign the value of $b$ to $x$.'' The statements $x\uparrow$
 and $x\downarrow$ are shorthand for $x := \true$ and $x := \false$,
 respectively.
 
@@ -160,7 +159,13 @@ $e$ over channel $A$,'' and $B?x$ means ``receive a value over channel $B$ and
 store it in variable $x$.''  Both sending and receiving are blocking.
 
 \item \textbf{Probe}: The Boolean $\overline{A}$ is true if and only if a
-communication on channel $A$ can complete without suspending.
+communication on channel $A$ can complete without suspending.  In our
+formulation, we write $\overline{A!}$ to mean that the channel is trying to
+send, and $\overline{A?}$ to mean that the channel is trying to receive, so the
+opposite action can complete without suspending.  Note that this does not
+guarantee that another program will not communicate with the channel and
+invalidate the result of the probe, unless the probing program has exclusive
+control over its end of the channel (which we have a mechanism to enforce).
 
 \item \textbf{Selection}: $[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n
 \rightarrow P_n]$, where each $G_i$ is a Boolean expression, and each $P_i$ is a
@@ -180,11 +185,10 @@ $*[\true \rightarrow P]$.
 statement $P$, and then execute statement $Q$.''
 
 \item \textbf{Parallel Composition}:$P || Q$.  This statement means ``execute
-statement $P$, while simultaneously executing statement $Q$.''
+statement $P$ while simultaneously executing statement $Q$.''
 
 \item \textbf{Simultaneous Composition}: $P \bullet Q$.  This statement means
-``execute channel actions $P$ and $Q$ such that they complete
-simultaneously.'' 
+``execute channel actions $P$ and $Q$ such that they complete simultaneously.'' 
 
 \end{itemize}
 
@@ -194,11 +198,10 @@ simultaneously.''
 The CHP that existing users expect has too many primitives to model cleanly,
 having both implicitly shared variables and channels. These channels are
 complex, supporting multi-channel synchronization and peeking at channel state.
-Rather than model the whole of CHP directly, we propose modeling a weaker
-language, HSE+ which contains only the shared variables and selection statements
-from CHP, making it much closer to HSE, although it assumes implicitly
-distinguishable states where HSE requires states to be explicitly
-distinguishable.
+Rather than model the whole of CHP directly, we model a HSE which contains only the shared variables and selection statements
+from CHP.  For the purposes of this paper, HSE refers to conventional HSE plus
+arbitrary state disambiguation; convential HSE requires explicit variables to
+track state, but we do not model those.
 
 \subsection{Grammar}
 \begin{align*}
@@ -241,8 +244,7 @@ distinguishable.
 \end{mathpar}
 
 Behavior of a Boolean statement containing an uninitialized variable is
-undefined, but if a process is of type $(\emptyset, w)$ (see Type System,
-below), then this will never happen.
+undefined.
 
 \subsubsection{Processes}
 
@@ -293,7 +295,6 @@ below), then this will never happen.
       b_n \rightarrow P_n], \sigma \rightarrow P_i, \sigma}
 \end{mathpar}
 
-%\marginpar{avs: this is actually a little wrong}
 \begin{mathpar}
 \inferrule* [left=Repeat]
     {S, \sigma \rightarrow P, \sigma}
@@ -338,18 +339,18 @@ below), then this will never happen.
 The only terms appearing in this grammar but not the HSE+ grammar are:
 $\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
 Therefore, it suffices to give translations for just these extra terms;
-everything else translates to its equivalent in HSE+. We also need to pick an
-active end and a passive end for each channel in order to translate into HSE+.
+everything else translates to its equivalent in HSE. We also need to pick an
+active end and a passive end for each channel in order to translate into HSE.
 We decide which end of the channel (the sending end or the receiving end) should
-be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$
-having its sending end active, and $\rho \vDash A?$ the channel $A$ having its
-receiving end active.  For simplicity, we restrict all channels to be Boolean
-channels. We also enforce channel end-to-endness and decide the scope of
-channels (i.e. minimum enclosing scope outside of which no process ever performs
-a send or receive on that channel).
+be active using the static analysis below, and denote by $\rho \vDash A!$ the
+channel $A$ having its sending end active, and $\rho \vDash A?$ the channel $A$
+having its receiving end active.  For simplicity, we restrict all channels to be
+Boolean channels.
+
+Note that the fire prevention static analysis (described below) allows us to assume that all
+channels are end-to-end.
 
 \subsection{Translation}
-
 
 We will use $\{P\}$ as shorthand to indicate terms which are translations of
 channel actions in CHP.
@@ -584,52 +585,18 @@ variables to values.  We initialize $\sigma$ to include $A_a = \bot$, $A_t =
 the transitions are sets, since we can have several channel operations occurring
 at once (via $\bullet$).
 
-\section{LTS and HSE+ Equality}
+\section{LTS and HSE Equality}
 % Norris
 
-We want to show that the transitions of the LTS correspond to those of the HSE+.
-First, we start by giving a definition of \textit{channel} and \textit{channel
-action}.
-
-A \textit{channel} is used for inter-process communication. All channels are
-uniquely identified using a capital letter, and there are two basic
-\textit{channel actions} allowed on channels: sends (denoted using
-$A!\mathrm{b}$, which sends the Boolean value b on channel $A$) and receives
-(denoted using $A?a$, which receives a sent value from channel $A$ and stores it
-in variable $a$). Sends and receives happen simultaneously; if a process
-attempts to send on a channel, it blocks until another process attempts to
-receive on that channel, at which point both actions occur simultaneously.
-Likewise, if a process attempts to receive on a channel, it blocks until another
-process attempts to send on that channel, at which point both actions occur
-simultaneously. Channel actions are program actions.
-
-Channels are \textit{end-to-end}, which means that at most one process can ever
-send on any given channel, and at most one process can ever receive on any given
-channel (where ``process'' is defined by parallel composition: any two programs
-parallel composed with each other are treated as two separate processes).
-
-We also define \textit{probes} on channels. The two probes are $\overline{A!}$
-and $\overline{A?}$; the former evaluates to $\top$ if a process is currently
-attempting to send on channel $A$, and $\bot$ otherwise, and the latter
-evaluates to $\top$ if a process is currently attempting to receive on channel
-$A$, and $\bot$ otherwise. Probes are Boolean expressions, and in addition are
-exempt from the end-to-end restriction.
-
-Finally, we define the \textit{bullet} operator. This operator operates on
-channel actions, and its semantics are as follows: for any two channel actions
-$C$ and $C'$, $C \bullet C'$ is a single channel action that completes when both
-$C$ and $C'$ complete simultaneously. So long as either one is blocked, $C
-\bullet C'$ is also blocked. Thus bullet enforces simultaneity.
-
-\vspace{0.1in}
+We want to show that the transitions of the LTS correspond to those of the HSE.
 
 We begin our discussion of correspondence by noting that for anything aside from
 probes and channel actions, since the transition rules are identical, it follows
 that the behavior is also identical. Thus we only need to show that the
 translations of channel actions and probes correspond to the definition above.
 Incidentally, due to the details of the hardware implementation, there are many
-programs that are valid in CHP, yet will not pass static analysis and thus
-cannot be translated into HSE+. We will discuss the correctness of the
+programs that appear valid in CHP, yet will not pass static analysis and thus
+cannot be translated into HSE. We will discuss the correctness of the
 translation only for programs that are both valid CHP and pass the static
 analyses.
 
