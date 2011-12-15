@@ -351,110 +351,114 @@ of $A!\mathrm{b}$ and $A?a$, respectively.
 TODO: proof for bullet here
 }
 
-\section{Restrictions and Static Analysis}
+\section{Static Analysis and Type Checking}
 %Alec
 
+\subsection{Concurrent Write Prevention}
 
+When our language is implemented on hardware, if we ever have two concurrent
+programs writing two different values to the same variable simultaneously,
+voltage connects to ground through the variable --- a short circuit --- and may
+literally cause the circuit to catch fire.  To prevent this from happening, we
+provide a static analysis method that tracks which variables a program may write
+to, and prohibits parallel processes from writing to the same variables.
+Because HSE+ is Turing-complete modulo infinite memory, we take a worst-case
+evaluation of select statements.
 
-In the physical reality of implementing our language on hardware, if we ever
-have two concurrent programs that write two different values to the same
-variable simultaneously, we will connect voltage to ground through the variable,
-which is a short circuit, and may cause the circuit to literally catch fire.  To
-prevent this from happening, we provide a static analysis method that tracks
-which variables a program may write to, and prohibits parallel processes from
-writing to the same variables.  Because HSE+ is Turing-complete modulo infinite
-memory, we must take a worst-case evaluation of select statements.
+This is accomplished by simple tree traversal over the AST.  Writes to variables
+only occur in three places:
 
-Additionally, we track variables which a program may read from which are certain
-to be not defined when they are read.  This does not provide strong guarantees,
-since we could set a variable only in one branch of a guard before reading it,
-but it is simple to track, and catches many programming errors.  When
-implementing CHP in HSE+, it also allows us to provide a guarantee that at least
-certain obvious cases of communication via non-channel shared variables is not
-occurring.
+\begin{description}
+\item[Variable Assignment:] The variable being written to.
+\item[Channel Sends:] The data variables of the channel
+\item[Channel Receives:] The acknowledge variable of the channel, and the
+variable that we store the result into.
+\end{description}
 
-A process or Boolean has a \emph{footprint} assigned to it if it does not
-contain the possibility of simultaneous writes.  A Boolean's footprint is simply
-the set of variables it reads from, and a process's footprint is a pair $(r,
-w)$, where $w$ is the set of variables it writes to, and $r$ is the set of
-variables that the process reads from before it could possibly have written to
-them.
+By traversing a program and accumulating the variables written, we can generate
+a set of variables that that program may write to.  With this ability, we just
+need to check whether these variable sets intersect when we introduce
+parallelism.
 
-\subsection{Booleans}
-\begin{mathpar}
-\inferrule* [left=Primitive]
-    { }
-    {\ell : \emptyset}
+The first and most obvious cases is across the parallel composition operator
+$||$.  If a variable may be written to on both sides of the operator, we have a
+potential fire.
 
-\inferrule* [left=Read]
-    { }
-    {a : \{a\}}
+More subtly, the bullet combinator for channel actions also introduces
+parallelism (and, indeed, when we compile to HSE, it compiles into parallel
+composition), and may cause fires.  For example, consider $A?x \bullet B?x$.
+This may write conflicting values to the variable x simultaneously, and cause a
+fire.  Similarly, $A!\top \bullet A!\bot$ writes conflicting values to A's data
+channel simultaneously.  Traversing all the components of a bullet and building
+the variable sets as we do for parallel composition prevents this from occurring.
 
-\inferrule* [left=Not]
-    {b : r}
-    {\lnot b : r}
+One desirable side-effect of this restriction is that it forces all channels to
+only have two concurrent endpoints at any time (they are \emph{end-to-end}):  if
+two separate parallel processes could write to or read from the same channel,
+there would be a potential fire on that channel's data or acknowledge variables.
+This restriction ensures that the channels of CHP are easy to implement in
+hardware --- while multi-endpoint channels are possible, they are very complex,
+and require a lot of assumptions about the behavior of the corresponding
+programs to function correctly, and the same functionality could be achieved by
+just having a process mediate between the channels.  Note that this restriction
+does not apply to probes, since they are strictly read only.
 
-\inferrule* [left=And]
-    {b_1 : r_1 \\ b_2 : r_2}
-    {b_1 \land b_2 : r_1 \union r_2}
+Note also that we could have had the fire detection run post-translation into
+HSE.  Any fire that occurs in CHP will also occur post-translation, and as it
+stands, fire detection has to understand the basics of transforming channels
+into variables, but, because fire detection places limits on the complexity of
+the programs described (end-to-end channels for example), requiring that a
+program be fire-free makes translation simpler.  For example, deriving correct
+bullet transformations with possibly non-end-to-end channels would be extremely
+difficult.
 
-\inferrule* [left=Or]
-    {b_1 : r_1 \\ b_2 : r_2}
-    {b_1 \lor b_2 : r_1 \union r_2}
-\end{mathpar}
+\subsection{A Type System for Channel Directionality}
 
-\subsection{Programs}
-\begin{mathpar}
-\inferrule* [left=Skip]
-    { }
-    {skip : (\emptyset, \emptyset)}
+When channels are implemented via transformation into variable reads and sets
+using a handshake, one end of the channel waits first, and one end of the
+channel writes first.  Either the sender or receiver can act first; a channel is
+\emph{active} if the sender acts first, and \emph{passive} if the receiver acts
+first.  We define the \emph{active end} of a channel as the end of the channel
+that moves first; this is the sender for active channels and the receiver for
+passive channels.
 
-\inferrule* [left=Write]
-    {b : r}
-    {a := b : (r, \{a\})}
+Before we can transform CHP channels into HSE variables, we need to determine
+the directionality of all the channel.  If there are no other restrictions on
+channels, they can be assigned a directionality arbitrarily.  However, probes
+and bullets place restrictions on the directionality of channels:
 
-\inferrule* [left=Sequence]
-    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2)}
-    {p_1; p_2 : (r_1 \union (r_2 \setminus w_1), w_1 \union w_2)}
+A probe can only probe the active end of a channel, because it listens for
+half-sends, and a wait is done silently, and cannot be detected without
+interfering with the channel.
 
-\inferrule* [left=Parallel]
-    {p_1:(r_1, w_1) \\ p_2:(r_2, w_2) \\ w_1 \intersection w_2 = \emptyset}
-    {p_1 || p_2 :
-        ((r_1 \setminus w_2) \union (r_2\setminus w_1), w_1 \union w_2)}
+Bullets require that at most one of the channel ends in the bullet may be
+active.  This requirement comes, too, from the implementation:  bullets must act
+simultaneously, and HSE (and QDI circuits) provides a mechanism for synchronous
+waiting, but not for synchronous writing to variables.
 
-\inferrule* [left=Selection]
-    {b_1 : q_1, \ldots, b_n : q_n \\
-     p_1 : (r_1, w_1), \ldots, p_n : (r_n, w_n)}
-    {[b_1 \rightarrow p_1  | \ldots | b_n \rightarrow p_n] : 
-     (\Union_{i=1}^{n} (q_i \union r_i), \Union_{i=1}^{n} w_i)}
+The bullet requirement can become difficult to solve since many bullets may be
+entangled through channels that they share.  Fortunately, we can reduce this
+problem to 2-SAT, where each channel is mapped to a variable of the same name,
+and if that variable is true, then the channel is active:
 
-\inferrule* [left=Repetition]
-    {s : (r,w)}
-    {\ast s : (r,w)}
-\end{mathpar}
+\begin{align*}
+\#A!           & \mapsto (A \lor A) \\
+\#A?           & \mapsto (\lnot A \lor \lnot A) \\
+A! \bullet B! & \mapsto (\lnot A \lor \lnot B) \\
+A! \bullet B? & \mapsto (\lnot A \lor B) \\
+A? \bullet B? & \mapsto (A \lor B) \\
+\end{align*}
 
-Let $p$ range over programs, and $s$ range over both deterministic and
-non-deterministic selection statements.
+If we apply these rules to build up a set of restrictions from each probe and
+each pair of channel actions that share a bullet in the program, any variable
+assignment that satisfies them will ensure that the above constraints are
+satisfied.
 
-The third requirement of the \textsc{Parallel} rule prevents fires; if the write
-sets of both parallel programs do not overlap, then they cannot write to the
-same variables, and we will not have short circuits.
-
-We have written a program to perform this check, and tested it on several
-non-trivial circuits.
-
-\section{Passive vs Active Channels}
-
-{\bf XXX: Finish this section}
-
-Channels need to determine if they are passive or active before they can be
-implemented.  If a channel is probed, or if it is part of a bullet-composed
-action restricts which of these it can be implemented by. Specifically, all
-probed channels must be passive, and out of all bullet-composed actions, only
-one can be active.  To solve this is 2-sat.  
-
-We have created a program to perform this check, and tested it on several
-non-trivial CHP programs.
+We have implemented a 2-SAT solver using the Aspvall, Plass \& Tarjan strongly
+connected component algorithm; it runs in quadratic time on the size of bullets
+(since we have a rule for each pair), and otherwise linear time on the number of
+probes and bullets.  For channels whose directionality is unrestricted, it
+assigns the direction arbitrarily.
 
 \section{Labeled Transition System for CHP}
 % Norris
