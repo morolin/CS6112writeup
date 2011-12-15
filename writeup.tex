@@ -192,7 +192,7 @@ statement $P$ while simultaneously executing statement $Q$.''
 
 \end{itemize}
 
-\section{HSE+}
+\section{HSE}
 % Alec
 
 The CHP that existing users expect has too many primitives to model cleanly,
@@ -312,11 +312,11 @@ undefined.
 \end{mathpar}
 
 
-\section{CHP embedding into HSE+}
+\section{CHP embedding into HSE}
 % Norris/Stephen
 
 \begin{comment}
-\subsection{HSE+ Grammar}
+\subsection{HSE Grammar}
 \begin{align*}
     \ell & ::= \top \; | \bot \\
     \mathrm{b} & ::= a \; | \; \ell \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
@@ -336,7 +336,7 @@ undefined.
     \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
 \end{align*}
 
-The only terms appearing in this grammar but not the HSE+ grammar are:
+The only terms appearing in this grammar but not the HSE grammar are:
 $\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
 Therefore, it suffices to give translations for just these extra terms;
 everything else translates to its equivalent in HSE. We also need to pick an
@@ -402,7 +402,7 @@ voltage connects to ground through the variable --- a short circuit --- and may
 literally cause the circuit to catch fire.  To prevent this from happening, we
 provide a static analysis method that tracks which variables a program may write
 to, and prohibits parallel processes from writing to the same variables.
-Because HSE+ is Turing-complete modulo infinite memory, we take a worst-case
+Because HSE is Turing-complete modulo infinite memory, we take a worst-case
 evaluation of select statements.
 
 This is accomplished by simple tree traversal over the AST.  Writes to variables
