@@ -495,8 +495,8 @@ problem to 2-SAT, where each channel is mapped to a variable of the same name,
 and if that variable is true, then the channel is active:
 
 \begin{align*}
-\#A!           & \mapsto (A \lor A) \\
-\#A?           & \mapsto (\lnot A \lor \lnot A) \\
+\overline{A!} & \mapsto (A \lor A) \\
+\overline{A?} & \mapsto (\lnot A \lor \lnot A) \\
 A! \bullet B! & \mapsto (\lnot A \lor \lnot B) \\
 A! \bullet B? & \mapsto (\lnot A \lor B) \\
 A? \bullet B? & \mapsto (A \lor B) \\
