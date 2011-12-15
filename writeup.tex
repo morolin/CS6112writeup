@@ -43,6 +43,28 @@ Once we had defined the LTS semantics, we were able to use it to reason about si
 \section{Asynchronous Computing}
 % Stephen
 
+% Outline
+% Synchronous Computation
+%  Global clock, synchronizing signals
+%  Use the clock to determine validity between computational units
+%  Require computational units to be time-bounded by the clock
+%    Necessitates making timing assumptions about how the underlying system will work
+%  Separate computational blocks with state-holding units.  Signal characteristics don't matter except during the time where these units are latching.
+%  Clock cannot be faster than the worst-case performance of any unit it synchronizes
+% Asynchronous systems:
+%  Remove the clock
+%    Reduces power -- no more power consumption from the clock
+%    Average case performance instead of worst case performance
+%  Use an alternate method to determine synchronization locally
+%    This method must be glitch-freeto prevent from beginning the next stage of computation too early
+%       Martin synthesis of programs from CHP to HSE to PRS guarantees glitch-free operation
+%       By virtue of doing so, requires strong confluence at the circuit-level
+%          Two possible transitions from the same state into different states would mean the potential for a glitch
+%    If this method is general enough, it removes the need to make assumptions about the
+%      QDI asynchronous makes only two assumptions about the underlying implementation: isochronic fork, loop gain of at least 1
+%  Most formalization work that has been done has been based on trace-theory semantics
+%  Possible to reason about systems in a single-step semantics form
+
 \section{CHP}
 % Stephen
 
@@ -79,7 +101,7 @@ used as a shorthand for $[G \rightarrow \Skip]$.
 \item \textbf{Repetition}: $*[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow
 P_n]$. This statement is executed by choosing one of the true guards and
 executing the corresponding statement, repeating until all guards evaluate to
-false. If the guards are not mutually exclusive, we use the thin bar ($\|$)
+false. If the guards are not mutually exclusive, we use the thin bar ($|$)
 instead of the thick bar ($[]$). $*[P]$ is used as a shorthand for $*[\true \rightarrow
 P]$.
 
