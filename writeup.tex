@@ -32,15 +32,28 @@
 \section{Introduction and Overview}
 % Stephen
 
-This semester, we took the course CS6112, and applied the principles from that course, along with conventional PL theory reasoning to the Communicating Hardware Processes (CHP) language used by the Asynchronous VLSI group at Cornell. 
+This semester, we took the course CS6112, and applied the principles from that
+course, along with conventional PL theory reasoning to the Communicating
+Hardware Processes (CHP) language used by the Asynchronous VLSI group at
+Cornell. 
 
-Our first observation was that the CHP language is compiled down to the handshaking expansion (HSE) language as the first step of the compilation process, and HSE has far fewer primitives.  Therefore, we defined each construct in CHP as being built of HSE primitives, and then reasoned about these simpler structures.
+Our first observation was that the CHP language is compiled down to the
+handshaking expansion (HSE) language as the first step of the compilation
+process, and HSE has far fewer primitives.  Therefore, we defined each construct
+in CHP as being built of HSE primitives, and then reasoned about these simpler
+structures.
 
-When doing so, we observed that there were several programs that were expressible in the CHP language, but not implementable in the HSE language, or in the final hardware synthesis.  These 
+When doing so, we observed that there were several programs that were
+expressible in the CHP language, but not implementable in the HSE language, or
+in the final hardware synthesis.  These 
 
-Additionally, we wanted to reason about programs in the CHP language in a way consistent with the calculi that we had been learning about in class.  Therefore, we built a labeled transition system in the CHP language, and discussed how it related to the HSE operational semantics that we had defined.
+Additionally, we wanted to reason about programs in the CHP language in a way
+consistent with the calculi that we had been learning about in class.
+Therefore, we built a labeled transition system in the CHP language, and
+discussed how it related to the HSE operational semantics that we had defined.
 
-Once we had defined the LTS semantics, we were able to use it to reason about simple equivalences.
+Once we had defined the LTS semantics, we were able to use it to reason about
+simple equivalences.
 
 
 \section{Asynchronous Computing}
@@ -71,42 +84,45 @@ Once we had defined the LTS semantics, we were able to use it to reason about si
 \section{CHP}
 % Stephen
 
-The Communicating Hardware Processes (CHP) language is the language commonly used to describe asynchronous circuits at a high level.  A formal semantics will be given for it in this document, but it is presented here informally.
+The Communicating Hardware Processes (CHP) language is the language commonly
+used to describe asynchronous circuits at a high level.  A formal semantics will
+be given for it in this document, but it is presented here informally.
 
-As convention, variables are ranged over by lowercase letters, $a, b, c
-\ldots$, channels are ranged over by uppercase letters from the beginning of
-the alphabet, $A, B, C \ldots$ ,  and programs or program segments are ranged
-over by uppercase letters from the second half of the alphabet, $P, Q, R
-\ldots$.  When we violate this convention, it will be explicitly mentioned.
+As convention, variables are ranged over by lowercase letters, $a, b, c \ldots$,
+channels are ranged over by uppercase letters from the beginning of the
+alphabet, $A, B, C \ldots$ ,  and programs or program segments are ranged over
+by uppercase letters from the second half of the alphabet, $P, Q, R \ldots$.
+When we violate this convention, it will be explicitly mentioned.
 
 \begin{itemize}
 
 \item \textbf{Skip}: $\Skip$.  This statement does nothing.
 
-\item \textbf{Assignment}: $x := E$, where $E$ is some Boolean expression.  This statement means ``assign the value
-of $E$ to $x$.'' The statements $x\uparrow$ and $x\downarrow$ are shorthand for $x := \true$
-and $x := \false$, respectively.
+\item \textbf{Assignment}: $x := E$, where $E$ is some Boolean expression.  This
+statement means ``assign the value of $E$ to $x$.'' The statements $x\uparrow$
+and $x\downarrow$ are shorthand for $x := \true$ and $x := \false$,
+respectively.
 
 \item \textbf{Communication}: $A!e$ is a statement meaning ``send the value of
 $e$ over channel $A$,'' and $B?x$ means ``receive a value over channel $B$ and
 store it in variable $x$.''  Both sending and receiving are blocking.
 
-\item \textbf{Probe}: The Boolean $\overline{A}$ is true if and only if a communication
-on channel $A$ can complete without suspending.
+\item \textbf{Probe}: The Boolean $\overline{A}$ is true if and only if a
+communication on channel $A$ can complete without suspending.
 
-\item \textbf{Selection}: $[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow P_n]$,
-where each $G_i$ is a Boolean expression, and each $P_i$ is a statement.  This
-statement is executed by waiting for one of the guards to be true, and then
-executing one statement with a true guard.  If the guards are not mutually
-exclusive, we use the thin bar ($|$) instead of the thick bar ($\talloblong$). $[G]$ is
-used as a shorthand for $[G \rightarrow \Skip]$.
+\item \textbf{Selection}: $[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n
+\rightarrow P_n]$, where each $G_i$ is a Boolean expression, and each $P_i$ is a
+statement.  This statement is executed by waiting for one of the guards to be
+true, and then executing one statement with a true guard.  If the guards are not
+mutually exclusive, we use the thin bar ($|$) instead of the thick bar
+($\talloblong$). $[G]$ is used as a shorthand for $[G \rightarrow \Skip]$.
 
-\item \textbf{Repetition}: $*[G_1 \rightarrow P_1 \talloblong ... \talloblong G_n \rightarrow
-P_n]$. This statement is executed by choosing one of the true guards and
-executing the corresponding statement, repeating until all guards evaluate to
-false. If the guards are not mutually exclusive, we use the thin bar ($|$)
-instead of the thick bar ($[]$). $*[P]$ is used as a shorthand for $*[\true \rightarrow
-P]$.
+\item \textbf{Repetition}: $*[G_1 \rightarrow P_1 \talloblong ... \talloblong
+G_n \rightarrow P_n]$. This statement is executed by choosing one of the true
+guards and executing the corresponding statement, repeating until all guards
+evaluate to false. If the guards are not mutually exclusive, we use the thin bar
+($|$) instead of the thick bar ($[]$). $*[P]$ is used as a shorthand for
+$*[\true \rightarrow P]$.
 
 \item \textbf{Sequential Composition}: $P;Q$.  This statement means ``execute
 statement $P$, and then execute statement $Q$.''
@@ -124,11 +140,13 @@ simultaneously.''
 % Alec
 
 The CHP that existing users expect has too many primitives to model cleanly,
-having both implicitly shared variables and channels. These channels are complex, supporting
-multi-channel synchronization and peeking at channel state.  Rather
-than model the whole of CHP directly, we propose modeling a weaker language, HSE+ which
-contains only the shared variables and selection statements from CHP, making it
-much closer to HSE, although it assumes implicitly distinguishable states where HSE requires states to be explicitly distinguishable.
+having both implicitly shared variables and channels. These channels are
+complex, supporting multi-channel synchronization and peeking at channel state.
+Rather than model the whole of CHP directly, we propose modeling a weaker
+language, HSE+ which contains only the shared variables and selection statements
+from CHP, making it much closer to HSE, although it assumes implicitly
+distinguishable states where HSE requires states to be explicitly
+distinguishable.
 
 \subsection{Grammar}
 \begin{align*}
@@ -275,8 +293,8 @@ be active using static analysis, and denote by $\rho \vDash A!$ the channel $A$
 having its sending end active, and $\rho \vDash A?$ the channel $A$ having its
 receiving end active.  For simplicity, we restrict all channels to be Boolean
 channels. We also enforce channel end-to-endness and decide the scope of
-channels (i.e. minimum enclosing scope outside of which no process ever
-performs a send or receive on that channel).
+channels (i.e. minimum enclosing scope outside of which no process ever performs
+a send or receive on that channel).
 
 \subsection{Translation}
 
@@ -341,8 +359,8 @@ TODO: proof for bullet here
 In the physical reality of implementing our language on hardware, if we ever
 have two concurrent programs that write two different values to the same
 variable simultaneously, we will connect voltage to ground through the variable,
-which is a short circuit, and may cause the circuit to literally catch fire.
-To prevent this from happening, we provide a static analysis method that tracks
+which is a short circuit, and may cause the circuit to literally catch fire.  To
+prevent this from happening, we provide a static analysis method that tracks
 which variables a program may write to, and prohibits parallel processes from
 writing to the same variables.  Because HSE+ is Turing-complete modulo infinite
 memory, we must take a worst-case evaluation of select statements.
@@ -351,9 +369,9 @@ Additionally, we track variables which a program may read from which are certain
 to be not defined when they are read.  This does not provide strong guarantees,
 since we could set a variable only in one branch of a guard before reading it,
 but it is simple to track, and catches many programming errors.  When
-implementing CHP in HSE+, it also allows us to provide a guarantee that at
-least certain obvious cases of communication via non-channel shared variables is
-not occurring.
+implementing CHP in HSE+, it also allows us to provide a guarantee that at least
+certain obvious cases of communication via non-channel shared variables is not
+occurring.
 
 A process or Boolean has a \emph{footprint} assigned to it if it does not
 contain the possibility of simultaneous writes.  A Boolean's footprint is simply
@@ -422,15 +440,21 @@ The third requirement of the \textsc{Parallel} rule prevents fires; if the write
 sets of both parallel programs do not overlap, then they cannot write to the
 same variables, and we will not have short circuits.
 
-We have written a program to perform this check, and tested it on several non-trivial circuits.
+We have written a program to perform this check, and tested it on several
+non-trivial circuits.
 
 \section{Passive vs Active Channels}
 
 {\bf XXX: Finish this section}
 
-Channels need to determine if they are passive or active before they can be implemented.  If a channel is probed, or if it is part of a bullet-composed action restricts which of these it can be implemented by. Specifically, all probed channels must be passive, and out of all bullet-composed actions, only one can be active.  To solve this is 2-sat.  
+Channels need to determine if they are passive or active before they can be
+implemented.  If a channel is probed, or if it is part of a bullet-composed
+action restricts which of these it can be implemented by. Specifically, all
+probed channels must be passive, and out of all bullet-composed actions, only
+one can be active.  To solve this is 2-sat.  
 
-We have created a program to perform this check, and tested it on several non-trivial CHP programs.
+We have created a program to perform this check, and tested it on several
+non-trivial CHP programs.
 
 \section{Labeled Transition System for CHP}
 % Norris
@@ -478,7 +502,8 @@ $$
     \frac{A? \notin \mathsf{head}(P)}{P, \sigma \models \overline{A?} = \bot}
 $$
 {\bf
-TODO use the new Boolean notation? $P, \sigma \models$ instead of just $\sigma \models$ } \\ 
+TODO use the new Boolean notation? $P, \sigma \models$ instead of just $\sigma
+\models$ } \\ 
 
 %Here are the rules for CHP:
 Continuing with the rules for statements in CHP:
@@ -516,14 +541,18 @@ $$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top, a = \top] \rangle} $$$$
 $$
 
-$\sigma$ is the environment, which in this case consists of a set of mappings of variables to values.
-We initialize $\sigma$ to include $A_a = \bot$, $A_t = \bot$, $A_f = \bot$ for all channels $A$.
-Furthermore, note that the labels on the transitions are sets, since we can have several channel operations occurring at once (via $\bullet$).
+$\sigma$ is the environment, which in this case consists of a set of mappings of
+variables to values.  We initialize $\sigma$ to include $A_a = \bot$, $A_t =
+\bot$, $A_f = \bot$ for all channels $A$.  Furthermore, note that the labels on
+the transitions are sets, since we can have several channel operations occurring
+at once (via $\bullet$).
 
-{\bf
-TODO: probes are currently broken, and will always evaluate to false (since they are only `true' when the other process has performed a labeled transition, but before the react rule takes place; we can never actually be in this state. Should we use the old $\rho$ method to make probes work again?)
-We fixed this using some new Boolean rules, but still need to come up with a good notation and add them to this document.
-}
+{\bf TODO: probes are currently broken, and will always evaluate to false (since
+they are only `true' when the other process has performed a labeled transition,
+but before the react rule takes place; we can never actually be in this state.
+Should we use the old $\rho$ method to make probes work again?) We fixed this
+using some new Boolean rules, but still need to come up with a good notation and
+add them to this document.  }
 
 
 \section{LTS and HSE+ Equality}
@@ -532,7 +561,8 @@ We fixed this using some new Boolean rules, but still need to come up with a goo
 {\bf XXX: Why are channel and channel action in bold? }
 
 We want to show that the transitions of the LTS correspond to those of the HSE+.
-First, we start by giving a definition of \textbf{channel} and \textbf{channel action}.
+First, we start by giving a definition of \textbf{channel} and \textbf{channel
+action}.
 
 A \textbf{channel} is used for inter-process communication. All channels are
 uniquely identified using a capital letter, and there are two basic
@@ -615,13 +645,13 @@ As can be seen, they exactly correspond to the description given above. Thus,
 the translations are correct in this case.
 
 If the receiving end of the channel is chosen to be the passive end, then the
-four-phase handshake proceeds as follows: the sending end of the channel,
-being the active end, initiates the handshake by setting either $A_t$ or $A_f$
-to be true, depending on which value is to be sent. It then waits for
-acknowledgement of receipt by checking for $A_a$ to be true. The receiving end,
-being the passive end, waits for the handshake to be initiated by checking for
-either $A_t$ or $A_f$ to be true. It then assigns $a$ to the appropriate value
-and acknowledges receipt by settings $A_a$ to be true. The sending end, upon
+four-phase handshake proceeds as follows: the sending end of the channel, being
+the active end, initiates the handshake by setting either $A_t$ or $A_f$ to be
+true, depending on which value is to be sent. It then waits for acknowledgement
+of receipt by checking for $A_a$ to be true. The receiving end, being the
+passive end, waits for the handshake to be initiated by checking for either
+$A_t$ or $A_f$ to be true. It then assigns $a$ to the appropriate value and
+acknowledges receipt by settings $A_a$ to be true. The sending end, upon
 receiving acknowledgement, indicates this by setting $A_t$ or $A_f$ to be false
 again, and waits for acknowledgement of termination of the handshake by waiting
 for $A_a$ to be false. Finally, the receiving end, upon seeing that $A_t$ or
@@ -683,8 +713,8 @@ requires the designer to guarantee that all of the guard statements are mutually
 exclusive, and one which does not. They are known, respectively, as
 deterministic and non-deterministic selection statements. In both cases, if none
 of the guards are true (and it is not a repetitive selection statement), they
-will block. In the case of a repeated selection statement, if none of the
-guards are true, the program will skip over this statement. This behavior allows
+will block. In the case of a repeated selection statement, if none of the guards
+are true, the program will skip over this statement. This behavior allows
 repeated selection statements to eventually terminate.
 
 The only difference between the two is that in the event that more than one
@@ -760,13 +790,15 @@ actions, then we can make an additional transformation:
 And now we have increased parallelism, as the statements in $S$ have been
 removed from the sequential execution path, and placed on a parallel one.
 
-To avoid shared variables, it may be the case that several statements must be decomposed at once, such as in:
+To avoid shared variables, it may be the case that several statements must be
+decomposed at once, such as in:
 
 \[
 *[S_1; x := x + 1; S_2; [ c \rightarrow x := 0 [] \lnot c \rightarrow \texttt{skip} ]; S_3; A!x ] 
 \]
 
-Knowing that none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can move all of the actions on $x$ into a separate process resulting in:
+Knowing that none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can
+move all of the actions on $x$ into a separate process resulting in:
 
 \begin{align*}
 & *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
@@ -776,7 +808,8 @@ Knowing that none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can m
 &]]
 \end{align*}
 
-Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has been omitted. This process can be re-ordered into:
+Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has
+been omitted. This process can be re-ordered into:
 
 \begin{align*}
 & *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
@@ -786,27 +819,45 @@ Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has bee
 &]]
 \end{align*}
 
-As both of these systems only have one externally-visible channel action (on $A$), their labeled transition systems will be the same modulo additional $\tau$ transitions from the $I$, $J$, and $K$ internal channel actions. Note that we do need to know that $x$ does not occur in $S_1$, $S_2$ or $S_3$ for this to hold, as $c$ must not have any dependencies on $x$.
+As both of these systems only have one externally-visible channel action (on
+$A$), their labeled transition systems will be the same modulo additional $\tau$
+transitions from the $I$, $J$, and $K$ internal channel actions. Note that we do
+need to know that $x$ does not occur in $S_1$, $S_2$ or $S_3$ for this to hold,
+as $c$ must not have any dependencies on $x$.
 
 \subsubsection{Slack Elasticity}
 
-In many designs, it may be necessary to add additional buffering to channels at a very late stage of design. Designs where adding buffering will not change the behavior are known as slack-elastic. Note that while you can always add more buffering to a slack-elastic design, you cannot always remove it. Specifically, one cannot always remove buffering from a channel, as that may introduce deadlock.
+In many designs, it may be necessary to add additional buffering to channels at
+a very late stage of design. Designs where adding buffering will not change the
+behavior are known as slack-elastic. Note that while you can always add more
+buffering to a slack-elastic design, you cannot always remove it. Specifically,
+one cannot always remove buffering from a channel, as that may introduce
+deadlock.
 
 \begin{itemize}
 
 \item {\bf Extending Slack on Non-Zero Slack Channels}
 
-Suppose process $P_1$ and $P_2$ are communicating over some FIFO-buffered channel A.  Adding additional buffering into this channel is tantamount to adding an additional $\tau$ action into the LTS.  Therefore, the system with the original channel A bisimulates the one with the extended channel. 
+Suppose process $P_1$ and $P_2$ are communicating over some FIFO-buffered
+channel A.  Adding additional buffering into this channel is tantamount to
+adding an additional $\tau$ action into the LTS.  Therefore, the system with the
+original channel A bisimulates the one with the extended channel. 
 
 \item {\bf Replacing Blocking Sends with Asynchronous Sends}
 
-A blocking send is one which will not proceed until its receiving side is ready. An asynchronous send is one that completes immediately, without waiting for the receive to be ready. The value that was to be send on the channel is then instead stored in a buffer, typically considered to be infinite size for the sake of simplicity.
+A blocking send is one which will not proceed until its receiving side is ready.
+An asynchronous send is one that completes immediately, without waiting for the
+receive to be ready. The value that was to be send on the channel is then
+instead stored in a buffer, typically considered to be infinite size for the
+sake of simplicity.
 
 \begin{enumerate}
 
 \item Deterministic Programs
 
-Intuitively, the biggest change that comes with replacing blocking sends with asynchronous sends is that the receipt order and mutual exclusivity is no longer guaranteed.  For example, if we had a program of the form:
+Intuitively, the biggest change that comes with replacing blocking sends with
+asynchronous sends is that the receipt order and mutual exclusivity is no longer
+guaranteed.  For example, if we had a program of the form:
 
 \begin{align*}
 &*[A!\top; B!\!\perp] \\
@@ -816,17 +867,28 @@ Intuitively, the biggest change that comes with replacing blocking sends with as
 &]
 \end{align*}
 
-And $A$ and $B$ are blocking, unbuffered channels, then the rules of the deterministic selection statement will be obeyed, and this will behave as expected (sending alternatively $\top$ and $\perp$ on channel $C$).  However, if $A$ and $B$ are replaced with asynchronous sends, their probes are no longer mutually exclusive, and the behavior will be undefined. 
+And $A$ and $B$ are blocking, unbuffered channels, then the rules of the
+deterministic selection statement will be obeyed, and this will behave as
+expected (sending alternatively $\top$ and $\perp$ on channel $C$).  However, if
+$A$ and $B$ are replaced with asynchronous sends, their probes are no longer
+mutually exclusive, and the behavior will be undefined. 
 
-If a program does not have probes, one cannot require mutual exclusivity of channel actions, (as this can only be observed with probes), and therefore, is slack elastic.
+If a program does not have probes, one cannot require mutual exclusivity of
+channel actions, (as this can only be observed with probes), and therefore, is
+slack elastic.
 
 \textbf{XXX}: This doesn't actually prove it using weak bisimulation.
 
 \item Maximally Non-Deterministic Programs
 
-As adding asynchronous channels can only increase the amount of non-determinism in the ordering, if a system is already maximally-nondeterministic, then adding asynchronous channels will not change anything.
+As adding asynchronous channels can only increase the amount of non-determinism
+in the ordering, if a system is already maximally-nondeterministic, then adding
+asynchronous channels will not change anything.
 
-As probes are the only construct that can observe mutually exclusivity, we consider a system to be maximally non-deterministic if probes only exist in the guards of nondeterministic selection statements, and for every such selection statement there exists a trace where all of the guards are true.
+As probes are the only construct that can observe mutually exclusivity, we
+consider a system to be maximally non-deterministic if probes only exist in the
+guards of nondeterministic selection statements, and for every such selection
+statement there exists a trace where all of the guards are true.
 
 \textbf{XXX}: This doesn't actually prove it using weak bisimulation. 
 
