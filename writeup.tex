@@ -55,31 +55,85 @@ discussed how it related to the HSE operational semantics that we had defined.
 Once we had defined the LTS semantics, we were able to use it to reason about
 simple equivalences.
 
-
 \section{Asynchronous Computing}
-% Stephen
+% Stephen Outline Synchronous Computation Global clock, synchronizing signals
+% Use the clock to determine validity between computational units Require
+% computational units to be time-bounded by the clock Necessitates making timing
+% assumptions about how the underlying system will work Separate computational
+% blocks with state-holding units.  Signal characteristics don't matter except
+% during the time where these units are latching.  Clock cannot be faster than
+% the worst-case performance of any unit it synchronizes
 
-% Outline
-% Synchronous Computation
-%  Global clock, synchronizing signals
-%  Use the clock to determine validity between computational units
-%  Require computational units to be time-bounded by the clock
-%    Necessitates making timing assumptions about how the underlying system will work
-%  Separate computational blocks with state-holding units.  Signal characteristics don't matter except during the time where these units are latching.
-%  Clock cannot be faster than the worst-case performance of any unit it synchronizes
-% Asynchronous systems:
-%  Remove the clock
-%    Reduces power -- no more power consumption from the clock
-%    Average case performance instead of worst case performance
-%  Use an alternate method to determine synchronization locally
-%    This method must be glitch-freeto prevent from beginning the next stage of computation too early
-%       Martin synthesis of programs from CHP to HSE to PRS guarantees glitch-free operation
-%       By virtue of doing so, requires strong confluence at the circuit-level
-%          Two possible transitions from the same state into different states would mean the potential for a glitch
-%    If this method is general enough, it removes the need to make assumptions about the
-%      QDI asynchronous makes only two assumptions about the underlying implementation: isochronic fork, loop gain of at least 1
-%  Most formalization work that has been done has been based on trace-theory semantics
-%  Possible to reason about systems in a single-step semantics form
+Most modern computation is done using a {\it synchronous } methodology, where
+there is a global {\it clock} that is used to synchronize between different
+computational units.  Each computational unit guarantees that their signals will
+be valid and ready to be used by the next stage by the end of the clock period,
+though they need not make any guarantees about the signal before that point.  At
+the end of each clock period, the signals are stored in state-holding elements
+to be used for the next period of computation. 
+
+In designing these circuits, a designer must take care that no computation ever
+takes longer than the clock period to complete. Because this relies on
+transistor timing simulation to determine, it is difficult to verify formally,
+and may depend on things such as temperature variations, or variations in the
+manufacturing process.
+
+% Asynchronous systems: Remove the clock Reduces power -- no more power
+% consumption from the clock Average case performance instead of worst case
+% performance Use an alternate method to determine synchronization locally This
+% method must be glitch-freeto prevent from beginning the next stage of
+% computation too early Martin synthesis of programs from CHP to HSE to PRS
+% guarantees glitch-free operation By virtue of doing so, requires strong
+% confluence at the circuit-level Two possible transitions from the same state
+% into different states would mean the potential for a glitch If this method is
+% general enough, it removes the need to make assumptions about the QDI
+% asynchronous makes only two assumptions about the underlying implementation:
+% isochronic fork, loop gain of at least 1 Most formalization work that has been
+% done has been based on trace-theory semantics Possible to reason about systems
+% in a single-step semantics form
+
+Alternatively, there exist several classes of {\it asynchronous} circuits, which
+do not have the same clocking behavior, instead having the all of the
+synchronization performmed locally. These circuits have the advantages of
+granting average case performance, and being more eaisly to formally verify. In
+this document, we will be focusing on the {\it Quasi Delay Insensitive} class of
+asynchronous circuits, commonly viewed to be the ``most asynchronous'' class,
+that makes the fewest assumptions about the underlying hardware.
+
+One requirement of circuit behaviors that makes designing asynchronous hardware
+more challenging is the fact that because synchronization is done locally, and
+thereby done with locally generated signals. For this synchronization to happen
+correctly, these signals must not have {\it glitches}, or signals which appear
+to transition, but in actuality do not. One way to guarantee this is to be
+certain that any transition that can occur will eventually occur, forcing the
+system to be strongly confluent.
+
+A methodology which guarantees this property for QDI asynchronous circuits is
+Alain Martin's synthesis method, commonly known as {\it Martin Synthesis}.  In
+this process, you begin with a high-level description of the desired system in the
+{\it Communicating Hardware Processes } language, a derivative of Hoare's CSP,
+and make parallelism-increasing transformations to turn it into a massively
+parallel system. This system is then projected down onto only actions on Boolean
+shared variables, through the process known as {\it handshaking expansion}. Once
+it has been expanded, all {\it conflicting} states are removed, where
+conflicting states are defined as ones where the assignments to program
+variables are identical, but the next action is not.  These are removed either
+by inserting additional program variables ({\it state variables} or by
+rearranging actions in such a way that the states become non-conflicting.
+
+This program precicely describes a set of transitions between states.  To
+synthesize the program into circuits, a minimal guard set, known as the
+{\it production rule set}, is found, and then transformed to be
+CMOS-implementable. 
+
+This semantics of this synthesis process were described in Marcel Renévan der
+Goot's 1995 Phd thesis "Semantics of VLSI Synthesis", but were done in a
+trace-theory based operational semantics significantly different from what is in
+use in contemporary PL research, making it difficult to translate techniques
+from current research into this field. Some methods for reasoning about the
+complilation process have been proposed, such as Manohar's {\it Behaviors},
+introduced in the paper ``Slack Elasticity in Concurrent Computing'', but those
+were again trace-based.
 
 \section{CHP}
 % Stephen
