@@ -510,6 +510,12 @@ $$
     \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta', \delta, \Sigma) \in \mathsf{match}} $$$$
     \frac{(\delta, \delta', \Sigma) \in \mathsf{match}}{(\delta \cup \{A!\ell\}, \delta' \cup \{A?a : \ell\}, \Sigma \cup \{[a = \ell\}) \in \mathsf{match}}
 $$
+Intuitively, $(\delta, \delta', \Sigma) \in \mathsf{match}$ means that the set
+of communications in label $\delta$ is the complement (i.e. sends correspond
+bijectively to receives) of communications in $\delta'$, and $\Sigma$ is the set
+of assignments that occur as a result of carrying out those communications (i.e.
+$a := \top \in \Sigma$ if and only if there is some channel receive writing
+$\top$ into $a$ in either $\delta$ or $\delta'$).
 
 Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
 2^{\mathbf{ChannelActions}}$ as follows:
@@ -522,6 +528,8 @@ Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
     \mathsf{head}(A?a \bullet C) & = \{A?\} \cup \mathsf{head}(C) \\
     \mathsf{head}(P) & = \varnothing \quad \text{for any other program $P$}
 \end{flalign*}
+Intuitively, $\mathsf{head}(P)$ returns the list of all program instructions
+that are currently executing in parallel.
 
 We start with the Boolean reduction rules. Here, $P, \sigma$ are the enclosing
 program $P$ and the current environment $\sigma$, respectively.
