@@ -57,7 +57,7 @@ semantics, we were able to use it to reason about simple equivalences.
 
 Most modern computation is done using a synchronous methodology, where there is
 a global clock that is used to synchronize between different computational
-units.  Each computational unit guarantees that their signals will be valid and
+units.  Each computational unit guarantees that its signals will be valid and
 ready to be used by the next stage by the end of the clock period, though they
 need not make any guarantees about the signal before that point.  At the end of
 each clock period, the signals are stored in state-holding elements to be used
@@ -66,7 +66,8 @@ for the next period of computation.
 In designing these circuits, a designer must take care that no computation ever
 takes longer than the clock period to complete. Because this relies on
 transistor timing simulation to determine, it is difficult to verify formally,
-and may depend on things such as variations in temperature or process.
+and may depend on things such as variations in temperature or manufacturing
+process.
 
 Alternatively, there exist several classes of asynchronous circuits, which do
 not have the same clocking behavior, instead having the all of the
@@ -156,7 +157,7 @@ $*[\true \rightarrow P]$.
 \item \textbf{Sequential Composition}: $P;Q$.  This statement means ``execute
 statement $P$, and then execute statement $Q$.''
 
-\item \textbf{Parallel Composition}:$P || Q$.  This statement means ``execute
+\item \textbf{Parallel Composition}: $P || Q$.  This statement means ``execute
 statement $P$ while simultaneously executing statement $Q$.''
 
 \item \textbf{Simultaneous Composition}: $P \bullet Q$.  This statement means
@@ -345,7 +346,7 @@ actions in CHP.
     \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
     %%% Bulleted receive, one active
     (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ & \qquad \rho \vDash C_1!, C_2?
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ & \qquad \rho \vDash C_1!, C_2?
       \end{matrix} \right.  \\
       %%% Bulleted send, both passive
           C_1!\mathrm{b}_1 \bullet C_2!\mathrm{b}_2 & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b}_2 \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b}_2 \rightarrow C_{2_f} := \top])); 
@@ -434,7 +435,7 @@ channel writes first.  Either the sender or receiver can act first; a channel is
 \emph{active} if the sender acts first, and \emph{passive} if the receiver acts
 first.  We define the \emph{active end} of a channel as the end of the channel
 that moves first; this is the sender for active channels and the receiver for
-passive channels.
+passive channels. We refer to this property of channels as \emph{directionality}.
 
 Before we can transform CHP channels into HSE variables, we need to determine
 the directionality of all the channel.  If there are no other restrictions on
@@ -641,12 +642,12 @@ channels in the bullet; to be specific, we can allow at most one channel in the
 set to be active, and the rest must be passive. In the case of $n$ passive
 channels $A_1, \ldots, A_n$, the translation for $A_1 \bullet \ldots \bullet
 A_n$ is:
-$$[{A_a}_1 \wedge \ldots \wedge {A_a}_n]; {A_b}_1 := \top; \ldots; {A_b}_n := \top; [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; {A_b}_1 := \bot; \ldots; {A_b}_n := \bot$$
+$$[{A_a}_1 \wedge \ldots \wedge {A_a}_n]; ( {A_b}_1 := \top || \ldots || {A_b}_n := \top); [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; ( {A_b}_1 := \bot || \ldots || {A_b}_n := \bot)$$
 In the case of one active channel $B$ and $n$ passive channels $A_1, \ldots,
 A_n$, the translation for $A_1 \bullet \ldots \bullet A_i \bullet B \bullet
 A_{i + 1} \bullet \ldots \bullet A_n$ is:
 
-$$B_a := \top; [B_b \wedge {A_a}_1 \wedge \ldots \wedge {A_a}_n]; ({A_b}_1 := \top; \ldots; {A_b}_n := \top); [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; B_a := \bot; [\neg B_b]; ({A_b}_1 := \bot; \ldots; {A_b}_n := \bot)$$
+$$B_a := \top; [B_b \wedge {A_a}_1 \wedge \ldots \wedge {A_a}_n]; ({A_b}_1 := \top || \ldots || {A_b}_n := \top); [\neg {A_a}_1 \wedge \ldots \wedge \neg {A_a}_n]; B_a := \bot; [\neg B_b]; ({A_b}_1 := \bot || \ldots || {A_b}_n := \bot)$$
 
 We will start with the first case, when all of the channels are passive.
 Clearly, the translation implements the four-phase handshake: for each channel
@@ -769,17 +770,17 @@ To avoid shared variables, it may be the case that several statements must be
 decomposed at once, such as in:
 
 \[
-*[S_1; x := x + 1; S_2; [ c \rightarrow x := 0 [] \lnot c \rightarrow \texttt{skip} ]; S_3; A!x ] 
+*[S_1; x := x + 1; S_2; [ c \rightarrow x := 0 \talloblong \lnot c \rightarrow \texttt{skip} ]; S_3; A!x ] 
 \]
 
 If none of $S_1$, $S_2$ and $S_3$ contain any actions on $x$, we can
 move all of the actions on $x$ into a separate process resulting in:
 
 \begin{align*}
-& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& *[S_1; I; S_2; [ c \rightarrow J \talloblong \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
 & || *[[\;\bar{I} \rightarrow x := x + 1; I \\
-&\;\;\;\;\;\;[] \bar{J} \rightarrow x := 0; J \\
-&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&\;\;\;\;\;\;\talloblong \bar{J} \rightarrow x := 0; J \\
+&\;\;\;\;\;\;\talloblong \bar{K} \rightarrow  A!x; K \\
 &]]
 \end{align*}
 
@@ -787,10 +788,10 @@ Again, $I$, $J$, and $K$ are dataless channel actions, so directionality has
 been omitted. This process can be re-ordered into:
 
 \begin{align*}
-& *[S_1; I; S_2; [ c \rightarrow J [] \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
+& *[S_1; I; S_2; [ c \rightarrow J \talloblong \lnot c \rightarrow \texttt{skip} ]; S_3; K] \\
 & || *[[\;\bar{I} \rightarrow I; x := x + 1 \\
-&\;\;\;\;\;\;[] \bar{J} \rightarrow J; x := 0 \\
-&\;\;\;\;\;\;[] \bar{K} \rightarrow  A!x; K \\
+&\;\;\;\;\;\;\talloblong \bar{J} \rightarrow J; x := 0 \\
+&\;\;\;\;\;\;\talloblong \bar{K} \rightarrow  A!x; K \\
 &]]
 \end{align*}
 
