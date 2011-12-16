@@ -192,7 +192,7 @@ statement $P$ while simultaneously executing statement $Q$.''
 
 \end{itemize}
 
-\section{HSE+}
+\section{HSE}
 % Alec
 
 The CHP that existing users expect has too many primitives to model cleanly,
@@ -312,11 +312,11 @@ undefined.
 \end{mathpar}
 
 
-\section{CHP embedding into HSE+}
+\section{CHP embedding into HSE}
 % Norris/Stephen
 
 \begin{comment}
-\subsection{HSE+ Grammar}
+\subsection{HSE Grammar}
 \begin{align*}
     \ell & ::= \top \; | \bot \\
     \mathrm{b} & ::= a \; | \; \ell \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
@@ -336,9 +336,9 @@ undefined.
     \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
 \end{align*}
 
-The only terms appearing in this grammar but not the HSE+ grammar are:
-$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, $C_1 \bullet C_2$.
-Therefore, it suffices to give translations for just these extra terms;
+The only terms appearing in this grammar but not the HSE grammar are:
+$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, and $C_1 \bullet C_2$.
+It suffices to give translations for just these extra terms;
 everything else translates to its equivalent in HSE. We also need to pick an
 active end and a passive end for each channel in order to translate into HSE.
 We decide which end of the channel (the sending end or the receiving end) should
@@ -363,28 +363,28 @@ channel actions in CHP.
     A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot & \qquad \rho \vDash A! \\
                                              A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f] & \qquad \rho \vDash A? \end{matrix} \right. \\
      %%% Bulleted receive, both passive
-    C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+    C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
     %%% Bulleted receive, one active
-     [ ((C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ ]& \qquad \rho \vDash C_1!, C_2?
+    (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot\; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ & \qquad \rho \vDash C_1!, C_2?
       \end{matrix} \right.  \\
       %%% Bulleted send, both passive
-          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
-    \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) ]& \; \rho \vDash C_1?, C_2? \\
+          C_1!b_1 \bullet C_2!b_2 & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top])); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) & \; \rho \vDash C_1?, C_2? \\
     %%% Bulleted send, one active
-    ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
-    \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ] & \; \rho \vDash C_1?, C_2!
+    (([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b_2} \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b_2} \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+    \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \; \rho \vDash C_1?, C_2!
       \end{matrix} \right. \\
       %%% Bulleted send/recieve, both passive
-          C_1!b \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2! \\
+          C_1!b \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
     %%% Bulleted send/recieve, receive active
-         [ ([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
-    \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) ]& \qquad \rho \vDash C_1!, C_2? \\
+         (([C_{1_a}]; [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
+    \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \qquad \rho \vDash C_1!, C_2? \\
     %%% Builleted send/recieve, send active
-      [ ( [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || (C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ ) ]& \qquad \rho \vDash C_1?, C_2!
+      (( [\mathrm{b_1} \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b_1} \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+    \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ & \qquad \rho \vDash C_1?, C_2!
       \end{matrix} \right. 
 \end{align*}
 
@@ -402,7 +402,7 @@ voltage connects to ground through the variable --- a short circuit --- and may
 literally cause the circuit to catch fire.  To prevent this from happening, we
 provide a static analysis method that tracks which variables a program may write
 to, and prohibits parallel processes from writing to the same variables.
-Because HSE+ is Turing-complete modulo infinite memory, we take a worst-case
+Because HSE is Turing-complete modulo infinite memory, we take a worst-case
 evaluation of select statements.
 
 This is accomplished by simple tree traversal over the AST.  Writes to variables
@@ -551,8 +551,8 @@ $$
 
 %Here are the rules for CHP:
 Continuing with the rules for statements in CHP (we use $\sigma \models$ as
-shorthand for $P, \sigma \models$ to avoid having to write the entire text
-of the program over and over again):
+shorthand for $P, \sigma \models$ to avoid having to include the entire text of
+the program):
 
 $$
     % skip, assign, sequential and parallel composition rules
@@ -572,7 +572,6 @@ $$
     \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
     \frac{\sigma \models \mathrm{b}_i = \top} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
     % communication rules
-    \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad A!\ell \not \in \delta \quad A?a:\ell \not \in \delta}{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle} $$$$
     \frac{\sigma \models \mathrm{b} = \top}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top] \rangle} \qquad
     \frac{\sigma \models \mathrm{b} = \bot}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top] \rangle} $$$$
     \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top, a = \top] \rangle} \qquad
@@ -581,8 +580,8 @@ $$
     %\frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
     \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathsf{match}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle} $$$$
     % bullet rules
-    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \top}{\langle \{A!\top \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top] \rangle} $$$$
-    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \bot}{\langle \{A!\bot \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top] \rangle} $$$$
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \top}{\langle \{A!b \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top] \rangle} $$$$
+    \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \bot}{\langle \{A!b \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top] \rangle} $$$$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top, a = \top] \rangle} $$$$
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle}{\langle \{A?a \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A?a : \bot\}} \langle \mathtt{skip}, \sigma'[A_f = \top, A_a = \top, a = \top] \rangle} $$$$
 $$
@@ -608,8 +607,8 @@ cannot be translated into HSE. We will discuss the correctness of the
 translation only for programs that are both valid CHP and pass the static
 analyses.
 
-The translation of the two basic channel actions is the ``four-phase
-handshake'', which works as follows: every channel has three variables assigned
+The translation of the two basic channel actions is the \emph{four-phase
+handshake}, which works as follows: every channel has three variables assigned
 to it. For a channel $A$, our translation rules name these as $A_a$, $A_t$, and
 $A_f$. Initially (i.e. when no channel action is being performed), all three of
 these variables are set to false. In addition, for each channel, we must pick
