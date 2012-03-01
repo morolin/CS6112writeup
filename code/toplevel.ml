@@ -71,6 +71,9 @@ let go' prog () =
           print_string "\n";
           print_string (labels_to_string labels);
           print_string "\n";
+          let hse = Translate.translate labels ast in
+          print_string (Pretty.string_of_program (Syntax.chp_of_hse hse));
+          print_string "\n";
           ()
         with Direction.DirectionException(s) ->
           print_string (s ^ "\n");

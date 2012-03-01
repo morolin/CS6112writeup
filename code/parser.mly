@@ -51,7 +51,6 @@ let syntax_error i s =
 %token <Info.t> GETS STAR SEQ PAR SKIP
 %token <Info.t> LBRACK RBRACK THICKBAR THINBAR ARROW
 %token <Info.t> BANG QMARK DOT
-%token <Info.t> CHANACK CHANTRUE CHANFALSE
 
 %token <Info.t * string> UIDENT LIDENT
 %token <Info.t * bool> BOOLEAN

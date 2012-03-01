@@ -134,9 +134,6 @@ rule main = parse
 | "!"                { BANG(info lexbuf) }
 | "?"                { QMARK(info lexbuf) }
 | "."                { DOT(info lexbuf) }
-| "`a"               { CHANACK(info lexbuf) }
-| "`t"               { CHANTRUE(info lexbuf) }
-| "`f"               { CHANFALSE(info lexbuf) }
 | id_char_first id_char_rest* as ident { 
   try let kw = Hashtbl.find keywords ident in
       kw (info lexbuf)
