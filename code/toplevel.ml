@@ -54,7 +54,7 @@ let go' prog () =
       begin
         let _ = Lexer.setup fn in
         let lexbuf = Lexing.from_string (Util.read fn) in
-        let ast : Syntax.program =
+        let ast : Syntax.chp =
           try Parser.program Lexer.main lexbuf with
             | Parsing.Parse_error ->
               (Error.error
