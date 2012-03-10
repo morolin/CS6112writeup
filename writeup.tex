@@ -160,8 +160,9 @@ statement $P$, and then execute statement $Q$.''
 \item \textbf{Parallel Composition}: $P || Q$.  This statement means ``execute
 statement $P$ while simultaneously executing statement $Q$.''
 
-\item \textbf{Simultaneous Composition}: $P \bullet Q$.  This statement means
-``execute channel actions $P$ and $Q$ such that they complete simultaneously.'' 
+\item \textbf{Simultaneous Composition}: $P \star Q$.  This statement means
+``execute channel actions $P$ and $Q$ such that they start and complete
+simultaneously.''
 
 \end{itemize}
 
@@ -304,24 +305,25 @@ undefined.
 
 
 \subsection{CHP Grammar}
+%%% TODO do we want to explicitly exclude things like x := \overline{A} and \neg \overline{A}?
 \begin{align*}
     \ell & ::= \top \; | \bot \\
     \mathrm{b} & ::= a \; | \; \ell \; | \; \overline{A!} \; | \; \overline{A?} \; | \; \mathrm{b}_1 \wedge \mathrm{b}_2 \; | \; \mathrm{b}_1 \vee \mathrm{b}_2 \; | \; \lnot \mathrm{b} \\
     \mathrm{P} & ::= a := \mathrm{b} \; | \; S \; | \, *S \; | \; C \; | \; P_1; P_2 \; | \: P_1 || P_2 \; | \; \mathtt{skip} \\
     \mathrm{S} & ::= [ \mathrm{b}_1 \rightarrow P_1 \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] \; | \; [ \mathrm{b}_1 \rightarrow P_1 | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] \\
-    \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \bullet C_2
+    \mathrm{C} & ::= A!\mathrm{b} \; | \; A?a \; | \; C_1 \star C_2
 \end{align*}
 
 The only terms appearing in this grammar but not the HSE grammar are:
-$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, and $C_1 \bullet C_2$.
-It suffices to give translations for just these extra terms;
-everything else translates to its equivalent in HSE. We also need to pick an
-active end and a passive end for each channel in order to translate into HSE.
-We decide which end of the channel (the sending end or the receiving end) should
-be active using the static analysis below, and denote by $\rho \vDash A!$ the
-channel $A$ having its sending end active, and $\rho \vDash A?$ the channel $A$
-having its receiving end active.  For simplicity, we restrict all channels to be
-Boolean channels.
+$\overline{A!}$, $\overline{A?}$, $A!\mathrm{b}$, $A?a$, and $C_1 \star C_2$.
+It suffices to give translations for just these extra terms; everything else
+translates to its equivalent in HSE. We also need to pick an active end and a
+passive end for each channel in order to translate into HSE.  We decide which
+end of the channel (the sending end or the receiving end) should be active using
+the static analysis below, and denote by $\rho \vDash A!$ the channel $A$ having
+its sending end active, and $\rho \vDash A?$ the channel $A$ having its
+receiving end active.  For simplicity, we restrict all channels to be Boolean
+channels.
 
 Note that the fire prevention static analysis (described below) allows us to assume that all
 channels are end-to-end.
@@ -341,30 +343,31 @@ actions in CHP.
                                                       [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot & \qquad \rho \vDash A? \end{matrix} \right. \\
     A?a & \Rightarrow \left\{ \begin{matrix} [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot & \qquad \rho \vDash A! \\
                                              A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f] & \qquad \rho \vDash A? \end{matrix} \right. \\
-     %%% Bulleted receive, both passive
-    C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
-    %%% Bulleted receive, one active
-    (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ & \qquad \rho \vDash C_1!, C_2?
-      \end{matrix} \right.  \\
-      %%% Bulleted send, both passive
-          C_1!\mathrm{b}_1 \bullet C_2!\mathrm{b}_2 & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b}_2 \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b}_2 \rightarrow C_{2_f} := \top])); 
-    \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) & \; \rho \vDash C_1?, C_2? \\
-    %%% Bulleted send, one active
-    (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b}_2 \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b}_2 \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
-    \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \; \rho \vDash C_1?, C_2!
-      \end{matrix} \right. \\
-      %%% Bulleted send/recieve, both passive
-          C_1!\mathrm{b} \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
-    %%% Bulleted send/recieve, receive active
-         (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
-    \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \qquad \rho \vDash C_1!, C_2? \\
-    %%% Builleted send/recieve, send active
-      (( [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
-    \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ & \qquad \rho \vDash C_1?, C_2!
-      \end{matrix} \right. 
+    %%% TODO Star translations
+%    %%% Bulleted receive, both passive
+%   C_1?a \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+%   \\ [\neg C_{1_t} \wedge \neg C_{1_f} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_a} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
+%   %%% Bulleted receive, one active
+%   (([C_{1_t} \vee C_{1_f}]; a := C_{1_t}; C_{1_a} := \top) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+%   \\ [\neg C_{1_t} \wedge \neg C_{1_f}];  C_{2_a} := \bot; [ \neg C_{2_t} \wedge \neg C_{2_f}]; C_{1_a} := \bot\ & \qquad \rho \vDash C_1!, C_2?
+%     \end{matrix} \right.  \\
+%     %%% Bulleted send, both passive
+%         C_1!\mathrm{b}_1 \bullet C_2!\mathrm{b}_2 & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || \\ ([C_{2_a}]; [\mathrm{b}_2 \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b}_2 \rightarrow C_{2_f} := \top])); 
+%   \\ [\neg C_{1_a} \wedge \neg C_{2_a}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ || C_{2_t} := \bot\ || C_{2_f} := \bot\ ) & \; \rho \vDash C_1?, C_2? \\
+%   %%% Bulleted send, one active
+%   (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || \\ ([\mathrm{b}_2 \rightarrow C_{2_t} := \top \talloblong \neg \mathrm{b}_2 \rightarrow C_{2_f} := \top]; [C_{2_a}])); 
+%   \\ [\neg C_{1_a}]; ( C_{2_t} := \bot\ || C_{2_f} := \bot\ );  [\neg C_{2_a}];  (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \; \rho \vDash C_1?, C_2!
+%     \end{matrix} \right. \\
+%     %%% Bulleted send/recieve, both passive
+%         C_1!\mathrm{b} \bullet C_2?a & \Rightarrow \left\{ \begin{matrix} (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+%   \\ [\neg C_{1_a} \wedge \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ||C_{2_a} := \bot\ ) & \qquad \rho \vDash C_1!, C_2! \\
+%   %%% Bulleted send/recieve, receive active
+%        (([C_{1_a}]; [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top]) || C_{2_a} := \top; (C_{2_t} \vee C_{2_f}]; a := C_{2_t})); 
+%   \\ [\neg C_{1_a}]; C_{2_a} := \bot\ ; [ \neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ) & \qquad \rho \vDash C_1!, C_2? \\
+%   %%% Builleted send/recieve, send active
+%     (( [\mathrm{b}_1 \rightarrow C_{1_t} := \top \talloblong \neg \mathrm{b}_1 \rightarrow C_{1_f} := \top];  [C_{1_a}] ) || ([C_{2_t} \vee C_{2_f}]; a := C_{2_t}; C_{2_a} := \top)); 
+%   \\ [\neg C_{2_t} \wedge \neg C_{2_f}]; (C_{1_t} := \bot\ || C_{1_f} := \bot\ ); [\neg C_{1_a}]; C_{2_a} := \bot\ & \qquad \rho \vDash C_1?, C_2!
+%     \end{matrix} \right. 
 \end{align*}
 
 \section{Restrictions and Static Analysis}
@@ -400,6 +403,7 @@ The first and most obvious cases is across the parallel composition operator
 $||$.  If a variable may be written to on both sides of the operator, we have a
 potential fire.
 
+%%% TODO adapt to star
 More subtly, the bullet combinator for channel actions also introduces
 parallelism (and, indeed, when we compile to HSE, it compiles into parallel
 composition), and may cause fires.  For example, consider $A?x \bullet B?x$.
@@ -437,6 +441,7 @@ first.  We define the \emph{active end} of a channel as the end of the channel
 that moves first; this is the sender for active channels and the receiver for
 passive channels. We refer to this property of channels as \emph{directionality}.
 
+%%% TODO adapt to star
 Before we can transform CHP channels into HSE variables, we need to determine
 the directionality of all the channel.  If there are no other restrictions on
 channels, they can be assigned a directionality arbitrarily.  However, probes
@@ -476,6 +481,8 @@ assigns the direction arbitrarily.
 
 \section{Labeled Transition System for CHP}
 % Norris
+
+%%% TODO we may need to change match to work with star
 We begin by defining a ternary relation and a function. First, we define
 $\mathsf{match} \subseteq \mathbf{Labels} \times \mathbf{Labels} \times
 \mathbf{Assignments}$ (where labels is the set of possible labels on
@@ -500,8 +507,8 @@ Next, we define $\mathsf{head}: \mathbf{Programs} \rightarrow
     \mathsf{head}(P ; Q) & = \mathsf{head}(P) \\
     \mathsf{head}(A!\ell) & = \{A!\} \\
     \mathsf{head}(A?a) & = \{A?\} \\
-    \mathsf{head}(A!\ell \bullet C) & = \{A!\} \cup \mathsf{head}(C) \\
-    \mathsf{head}(A?a \bullet C) & = \{A?\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(A!\ell \star C) & = \{A!\} \cup \mathsf{head}(C) \\
+    \mathsf{head}(A?a \star C) & = \{A?\} \cup \mathsf{head}(C) \\
     \mathsf{head}(P) & = \varnothing \quad \text{for any other program $P$}
 \end{flalign*}
 Intuitively, $\mathsf{head}(P)$ returns the set of all chanel actions that are
@@ -548,12 +555,14 @@ $$
     \frac{\sigma \models \mathrm{b}_1 = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_{i-1} = \bot \wedge \mathrm{b}_i = \top \wedge \mathrm{b}_{i+1} = \bot \wedge \; \ldots \; \wedge \; \mathrm{b}_n = \bot} {\langle *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i; \; *[ \mathrm{b}_1 \rightarrow P_1  \talloblong \; \ldots \; \talloblong \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
     \frac{\sigma \models \mathrm{b}_i = \top} {\langle *[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma \rangle \xrightarrow{\tau} \langle P_i;\;*[ \mathrm{b}_1 \rightarrow P_1  | \; \ldots \; | \mathrm{b}_n \rightarrow P_n ] , \sigma\rangle  } $$$$
     % communication rules
-    \frac{\sigma \models \mathrm{b} = \top}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top] \rangle} \qquad
-    \frac{\sigma \models \mathrm{b} = \bot}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top] \rangle} $$$$
-    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \top} \langle \mathtt{skip}, \sigma[A_t = \top, A_a = \top, a = \top] \rangle} \qquad
-    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \bot} \langle \mathtt{skip}, \sigma[A_f = \top, A_a = \top, a = \bot] \rangle} $$$$
+    \frac{\sigma \models \mathrm{b} = \top}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\top} \langle \mathtt{skip}, \sigma \rangle} \qquad
+    \frac{\sigma \models \mathrm{b} = \bot}{\langle \{A!\mathrm{b}\}, \sigma \rangle \xrightarrow{A!\bot} \langle \mathtt{skip}, \sigma \rangle} $$$$
+    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \top} \langle \mathtt{skip}, \sigma[a = \top] \rangle} \qquad
+    \frac{}{\langle \{A?a\}, \sigma \rangle \xrightarrow{A?a : \bot} \langle \mathtt{skip}, \sigma[a = \bot] \rangle} $$$$
     %\frac{\langle P, \sigma \rangle \xrightarrow{A!\ell} \langle P', \sigma \rangle \quad \langle Q, \sigma' \rangle \xrightarrow{A?a : \ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle} $$$$
     %\frac{\langle P, \sigma \rangle \xrightarrow{A?a : \ell} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{A!\ell} \langle Q', \sigma'' \rangle}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[a = \ell] \rangle}
+    %%% TODO Star rules
+    % this one is the match rule, which we probably need to change
     \frac{\langle P, \sigma \rangle \xrightarrow{\delta} \langle P', \sigma' \rangle \quad \langle Q, \sigma'' \rangle \xrightarrow{\delta'} \langle Q', \sigma''' \rangle \quad (\delta, \delta', \Sigma) \in \mathsf{match}}{\langle P || Q, \sigma \rangle \xrightarrow{\tau} \langle P' || Q', \sigma[\Sigma] \rangle} $$$$
     % bullet rules
     \frac{\langle \{C\}, \sigma \rangle \xrightarrow{\delta} \langle \mathtt{skip}, \sigma' \rangle \quad \sigma \models \mathrm{b} = \top}{\langle \{A!\mathrm{b} \bullet C\}, \sigma \rangle \xrightarrow{\delta \cup \{A!\top\}} \langle \mathtt{skip}, \sigma'[A_t = \top, A_a = \top] \rangle} $$$$
@@ -566,11 +575,159 @@ Where $\sigma$ is the environment, which in this case consists of a set of
 mappings of variables to values.  We initialize $\sigma$ to include $A_a =
 \bot$, $A_t = \bot$, $A_f = \bot$ for all channels $A$.  Furthermore, note that
 the labels on the transitions are sets, since we can have several channel
-operations occurring at once (via $\bullet$).
+operations occurring at once (via $\star$).
 
 \section{LTS and HSE Equality}
 % Norris
+For anything aside from probes and channel actions, since the transition rules
+in LTS and HSE are identical, it follows that the behavior is also identical.
+Thus it is semantically correct to leave those as-is when translating from LTS
+to HSE.
 
+Thus we need only show that the translations of channel actions and probes (the
+non-identity translations) preserve the semantics of the program. Incidentally,
+due to the details of the hardware implementation, there are many programs that
+appear valid in CHP, yet will not pass static analysis and thus cannot be
+translated into HSE. We will discuss the correctness of the translation only for
+programs that are both valid CHP and pass the static analyses.
+
+\subsection{Basic Channel Actions}
+The translation of the two basic channel actions is the \emph{four-phase
+handshake}, which works as follows: every channel has three variables assigned
+to it. For a channel $A$, our translation rules name these as $A_a$, $A_t$, and
+$A_f$. When the program begins execution, all three of these variables are
+initialized to false. In addition, for each channel, we must pick one of the
+ends to be the active end, and the other to be the passive end. Thus there are
+two cases.
+
+The translations for the case where the sending end is passive (i.e. $\rho
+\vDash A?$) are as follows:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot \\
+    A?a & \Rightarrow A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f]
+\end{flalign*}
+
+The translations for the case where the receiving end is passive (i.e. $\rho
+\vDash A!$) are as follows:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [A_a]; A_t := \bot; A_f := \bot; [\neg A_a] \\
+    A?a & \Rightarrow [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot
+\end{flalign*}
+
+In order to prove that the translation is correct, we need to show that
+evaluation of either a send $A!\mathrm{b}$ or a receive $A?a$ on its own will
+become stuck, but evaluation of both in parallel will have the same semantics as
+in the LTS: namely, both the send and the receive evaluate to $\mathsf{skip}$
+and also $a$ is assigned the value $\mathrm{b}$. We also want to show that each
+of the three channel variables $A_a$, $A_t$, and $A_f$ are reset to false
+afterwards; since the three channel variables are all initialized to false and
+reset to false after each channel action, and by end-to-endness only one channel
+action can occur at a time for each channel, this is sufficient to prove that at
+the beginning of each channel action they will all be false. Note as well that
+by end-to-endness, the only code that can change the value of the channel
+variables is the currently executing $A!\mathrm{b}$ and $A?a$.
+
+We first consider the case where the sending end is passive. Then on its own,
+evaluation of $A!\mathrm{b}$ will become stuck because $A_a$ is false, and the
+first thing that $A!\mathrm{b}$ does is wait for $A_a$ to be true.  Likewise,
+evaluation of $A?a$, on its own, will become stuck: it will first set $A_a$ to
+true, but then it waits for either $A_t$ or $A_f$ to be true, and they are both
+false. When evaluated together, $A!\mathrm{b}$ cannot make any progress at all
+until $A_a$ is true, so it blocks until $A?a$ sets $A_a$ to true. Now $A?a$
+cannot make any progress until $A_t \vee A_f$ is true, so it blocks until
+$A!\mathrm{b}$ progresses past the $[A_a]$ check and sets one of them to be
+true. Since $A!\mathrm{b}$ does so using a deterministic selection, exactly one
+of $A_t, A_f$ will be set to true; by the guards on the selection, we also know
+that $A_t = \top$ if and only if $b = \top$; i.e. $A_t = b$. Now $A!\mathrm{b}$
+blocks until $A_a$ is false, so only $A?a$ makes progress. It does so by
+assigning $a := A_t$ and setting $A_a$ to false, but it now blocks until both
+$A_t$ and $A_f$ are false. Since $A_t = b$, it follows that $a = b$, as desired.
+$A!\mathrm{b}$ sets both to false and completes. However, there is now the
+possibility that another $A!\mathrm{b}$ action begins evaluation before the
+first $A?a$ notices that $A_t$ and $A_f$ are both false and terminates. This
+does not break anything because the second $A!\mathrm{b}$ action would
+immediately become stuck because $A_a$ is false.  Eventually, $A?a$ notices that
+$A_t$ and $A_f$ are both false and completes as well. We now have $a = b$ and
+$A_a = A_t = A_f = \bot$, as desired.
+
+Next, we consider the case where the receiving end is passive. Then on its own,
+evaluation of $A?a$ will become stuck because both $A_t$ and $A_f$ are false,
+and the first thing that $A?a$ does is wait for $A_t \vee A_f$ to be true.
+Likewise, evaluation of $A!\mathrm{b}$, on its own, will become stuck: it will
+first set either $A_t$ or $A_f$ to true, but then it waits for $A_a$ to be true.
+Since $A!\mathrm{b}$ sets $A_t$ and $A_f$ using a deterministic guard, exactly one
+of the two will be set to true; furthermore, it sets $A_t := \top$ if and only
+if $b = \top$. Thus $A_t = b$ afterwards. When evaluated together, $A?a$ cannot
+make any progress at all until $A_t$ or $A_f$ is true, so it blocks until
+$A!\mathrm{b}$ sets one of them to to true. Now $A!\mathrm{b}$ cannot make any
+progress until $A_a$ is true, so it blocks until $A?a$ progresses past the $[A_t
+\vee A_f]$ check, assigns $a := A_t$, and sets $A_a$ to be true. Since $A_t =
+b$, we now have $a = b$. Now $A?a$ blocks until both $A_t$ and $A_f$ are false,
+so only $A!\mathrm{b}$ makes progress. It does so by setting $A_t$ and $A_f$ to
+false, and blocks until $A_a$ is false. $A?a$ sets $A_a$ to false and completes.
+However, there is now the possibility that another $A?a$ action begins
+evaluation before the first $A!\mathrm{b}$ notices that $A_a$ is now false and
+terminates. This does not break anything because the second $A?a$ action would
+immediately become stuck because both $A_t$ and $A_f$ are false. Eventually,
+$A!\mathrm{b}$ gets a chance to run and completes as well. We now have $a = b$
+and $A_a = A_t = A_f = \bot$, as desired.
+
+%%% TODO TODO
+\subsection{Complex Channel Actions}
+
+\subsection{Probes}
+Due to limitations of the hardware implementation, we can only ever probe the
+active end of the channel, since the passive end makes no visible changes when
+it is blocked on a channel action. Thus, for a channel with a passive receiving
+end, the only probe allowed is a send probe ($\overline{A!}$); likewise, for a
+channel with a passive sending end, the only probe allowed is a receive probe
+($\overline{A?}$). Thus we only have one translation for each probe:
+\begin{flalign*}
+    \overline{A!} & \Rightarrow (A_t \vee A_f) \\
+    \overline{A?} & \Rightarrow A_a
+\end{flalign*}
+
+The behaviour of a probe is defined to be the following: the probe should only
+ever evaluate to true if the channel action that it is probing is trying to
+evaluate. At all other times, it should evaluate to false. Furthermore, the
+probe is allowed to evaluate to false even when the channel action that it is
+probing is still executing, although we try to minimize this behaviour.
+
+%%% TODO we just need to show that even with star, only the code for the channel
+%%% action being probed will change the value of the channel variable that the
+%%% probe is reading, and that it sets it to true at the beginning and false at
+%%% the end
+We first show that this behaviour is provided by the basic channel action
+translations. In the case of $\overline{A!}$, we know that the sending end must
+be active. The translations in this case are:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [A_a]; A_t := \bot; A_f := \bot; [\neg A_a] \\
+    A?a & \Rightarrow [A_t \vee A_f]; a := A_t; A_a := \top; [\neg A_t \wedge \neg A_f]; A_a := \bot
+\end{flalign*}
+
+As can be seen, only $A!\mathrm{a}$ ever changes the value of $A_t$ or $A_f$.
+From the proofs for the translations themselves, we know that between channel
+actions, all three channel variables are false, so the probe would evaluate to
+false. During a channel action, we see that $A!\mathrm{a}$ sets one of $A_t$ and
+$A_f$ to true as its first action; this causes the probe to evaluate to true.
+This remains the case until near the end of $A!\mathrm{a}$, at which point it
+sets $A_t$ and $A_f$ (and thus the probe) back to false.
+
+For $\overline{A?}$, we know that the receiving end must be active. The
+translations in this case are:
+\begin{flalign*}
+    A!\mathrm{b} & \Rightarrow [A_a]; [\mathrm{b} \rightarrow A_t := \top \talloblong \neg \mathrm{b} \rightarrow A_f := \top]; [\neg A_a]; A_t := \bot; A_f := \bot \\
+    A?a & \Rightarrow A_a := \top; [A_t \vee A_f]; a := A_t; A_a := \bot; [\neg A_t \wedge \neg A_f]
+\end{flalign*}
+
+As can be seen, only $A?a$ ever changes the value of $A_a$.  From the proofs for
+the translations themselves, we know that between channel actions, all three
+channel variables are false, so the probe would evaluate to false. During a
+channel action, we see that $A?a$ sets $A_a$ to true as its first action; this
+causes the probe to evaluate to true.  This remains the case until near the end
+of $A?a$, at which point it sets $A_a$ (and thus the probe) back to false.
+
+\section*{LTS and HSE Equality OLD}
 In the following, we construct a proof sketch showing that the transitions of
 the LTS correspond to those of the HSE.
 
