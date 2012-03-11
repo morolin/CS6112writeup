@@ -1,0 +1,88 @@
+\documentclass{article}
+\usepackage{mathpartir}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{stmaryrd}
+
+\title{The $\star$ Operator}
+\author{Stephen Longfield}
+
+\begin{document}
+
+\newcommand{\union}{\cup}
+\newcommand{\Union}{\bigcup}
+\newcommand{\intersection}{\cap}
+\newcommand{\thickbar}{\talloblong}
+\newcommand{\Skip}{\hbox{\bf skip}}
+
+\maketitle
+
+\section{Overview}
+
+The $\star$ operator replaces the $\bullet$ operator in CHP. As far as I know, it was first suggested in Manohar01, and was done to allow for a more well-defined translation into HSE. The two differences between the operators are that $\bullet$ does not deadlock when composed with itself, and that while channel actions composed with $\bullet$ are defined to begin at the same time, channel actions composed with $\star$ are defined to begin and end at the same time. I think that it will vastly simplify our lives as compared to $\bullet$, as we no longer have to consider the parallel composition of bulleted together operatons. 
+
+An additional restriction that we can place on the language is that probes can only occur in the guards of selections statements.  This means that any statements of the form $x := \bar{A}$ are illegal. I do not think this buys us anything at this level, but I used it at the HSE reshuffling level to simplify verification. This restriction doesn't really change anything unless we also outlaw negated probes (typically done at the PRS/HSE level, as the "falseness" of a probe is not usually stable), as $x := \bar{A}$ is equivalent to $[\bar{A} \rightarrow x\uparrow \talloblong \lnot \bar{A} \rightarrow x\downarrow]$
+
+\section{Operational Semantics}
+
+These aren't 100\% of the rules, I'm using the fact that that $||$ and $\star$ commute to not write down everything, and this doesn't handle situations of the form $A\star B||B \star C||A||C$ (note that if the last parallel composition was $A \star C$ it would deadlock).
+
+\begin{mathpar}
+\inferrule* [left=StarSend]
+    {}
+    {(A!\mathrm{b_1} \star B!\mathrm{b_2}) || A?x || B?y , \sigma \rightarrow \mathtt{skip}, \sigma[x = \mathrm{b_1}, y = \mathrm{b_2}]}
+
+\inferrule* [left=StarRecv]
+    {}
+    {(A?x \star B?y) || A!\mathrm{b_1} || B!\mathrm{b_2} , \sigma \rightarrow \mathtt{skip}, \sigma[x = \mathrm{b_1}, y = \mathrm{b_2}]}
+
+\inferrule* [left=StarSendRecv]
+    {}
+    {A?x \star B!\mathrm{b_2} || A!\mathrm{b_1} || B?y , \sigma \rightarrow \mathtt{skip}, \sigma[x = \mathrm{b_1}, y = \mathrm{b_2}]}
+
+\end{mathpar}
+
+An attempt at a more general rule, given that $C$ and $D$ are communication actions (of the form $A!\mathrm{b}$, $B?x$, or $C\star D$), and $C^\prime$ and $D^\prime$ are their complimentary actions.
+
+\begin{mathpar}
+\inferrule* [left=Star]
+    {C || C^\prime, \sigma \rightarrow \mathtt{skip} \; \sigma^\prime \\
+     D || D^\prime, \sigma^\prime \rightarrow \mathtt{skip} \; \sigma^{\prime\prime}}
+    {C \star D || C^\prime || D^\prime, \sigma \rightarrow \mathtt{skip} \; \sigma^{\prime\prime}}
+\end{mathpar}
+
+I think this covers all of the cases, but I'm not 100\% certain.  I'd appreciate you taking a look at it.
+
+\section{Translation into HSE+}
+
+To simplify the translation, I'm going to propose we make the translation for send and receive the same, as it makes things a bit clearer. This requires a few definitions:
+
+\begin{tabular}{| l | c | c | c |}
+\hline
+& $R!\top$ & $R!\perp$ & $R?x$ \\
+\hline
+$[r_i]$ & $[R_a]$ & $[R_a]$ & $[R_t \rightarrow x\uparrow \talloblong R_f \rightarrow x\downarrow]$ \\
+\hline
+$[\lnot r_i]$ & $ [\lnot R_a] $ & $[\lnot R_a]$ & $[\lnot R_t \land \lnot R_f ]$ \\
+\hline
+$r_o\uparrow$ & $R_t \uparrow $ & $R_f \uparrow$ & $R_a \uparrow$ \\
+\hline
+$r_o\downarrow$ & $R_t \downarrow $ & $R_f \downarrow$ & $R_a \downarrow$ \\
+\hline
+\end{tabular}
+
+
+With that we now have:
+
+\begin{align*}
+\textrm{ $C$ and $D$ Passive: } & C \star D \overset{\triangle}{=} && [c_i \land r_i]; (l_o\uparrow || r_o\uparrow); [\lnot c_i \land \lnot r_i]; (l_o\downarrow || r_o\downarrow)   \\
+\textrm{ $C$ Passive and $D$ Active: } & C \star D \overset{\triangle}{=}  && [c_i]; d_o\uparrow; [d_i]; c_o\uparrow; [\lnot c_i]; d_o\downarrow; [\lnot d_i]; c_o\downarrow\\
+\textrm{ $C_0$ ... $C_n$ Passive and $D$ Active: } & C \star D \overset{\triangle}{=} &&  [c_{0_i} \land ... \land \; c_{n_i}]; d_o\uparrow; [d_i]; (c_{0_o}\uparrow || ... || c_{n_o}\uparrow); \\
+& && [\lnot c_{0_i} \land ... \land \lnot c_{0_i} ]; d_o\downarrow; [\lnot d_i]; (c_{0_o} \downarrow || ... || c_{n_o}\downarrow)
+\end{align*}
+
+\section{Static Analysis Notes}
+
+The rules for $\star$ are basically the same as $\bullet$, that we cannot have more than one active channel bulleted together. However, there's also the constraint that we can't have a cycle of bulleted together operations, or we will deadlock. This might be easy to check for the potential for? It's always nice to have a few of the potential deadlock conditions covered by static analysis, since deadlock's a bitch.
+
+\end{document}
