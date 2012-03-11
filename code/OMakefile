@@ -70,7 +70,8 @@ FRENETIC_BASE_SOURCES[] = \
     pretty.mli pretty.ml \
 	static.mli static.ml \
     syntax.mli syntax.ml \
-    toplevel.ml
+    toplevel.ml \
+    translate.mli translate.ml
 
 FRENETIC_SOURCES = $(file $(FRENETIC_BASE_SOURCES)) frenetic.ml
 

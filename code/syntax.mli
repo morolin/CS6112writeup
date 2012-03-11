@@ -31,6 +31,12 @@
 
 module StrSet : Set.S with type elt = string
 
+type variable =
+  | VVar of Info.t * string
+  | VAck of Info.t * string
+  | VTrue of Info.t * string
+  | VFalse of Info.t * string
+
 type boolean = 
   | BVar of Info.t * variable
   | BLit of Info.t * bool
@@ -40,19 +46,18 @@ type boolean =
   | BOr of Info.t * boolean * boolean
   | BNot of Info.t * boolean
 
-and variable =
-  | VVar of Info.t * string
-  | VAck of Info.t * string
-  | VTrue of Info.t * string
-  | VFalse of Info.t * string
+type channel =
+  | CSend of Info.t * string * boolean
+  | CRecv of Info.t * string * variable
+  | CBullet of Info.t * channel * channel
 
-and program =
+type chp =
   | PGets of Info.t * variable * boolean
   | PSelect of Info.t * select
   | PLoop of Info.t * select
   | PChannel of Info.t * channel
-  | PSeq of Info.t * program * program
-  | PPar of Info.t * program * program
+  | PSeq of Info.t * chp * chp
+  | PPar of Info.t * chp * chp
   | PSkip of Info.t
 
 and select =
@@ -60,23 +65,40 @@ and select =
   | SNonDet of Info.t * select_nondet
 
 and select_det = 
-  | SDBase of Info.t * boolean * program
-  | SDRecur of Info.t * boolean * program * select_det
+  | SDBase of Info.t * boolean * chp
+  | SDRecur of Info.t * boolean * chp * select_det
 
 and select_nondet = 
-  | SNBase of Info.t * boolean * program
-  | SNRecur of Info.t * boolean * program * select_nondet
+  | SNBase of Info.t * boolean * chp
+  | SNRecur of Info.t * boolean * chp * select_nondet
 
-and channel =
-  | CSend of Info.t * string * boolean
-  | CRecv of Info.t * string * variable
-  | CBullet of Info.t * channel * channel
+type hse =
+  | HGets of Info.t * variable * boolean
+  | HSelect of Info.t * hselect
+  | HLoop of Info.t * hselect
+  | HSeq of Info.t * hse * hse
+  | HPar of Info.t * hse * hse
+  | HSkip of Info.t
+
+and hselect =
+  | HSDet of Info.t * hselect_det
+  | HSNonDet of Info.t * hselect_nondet
+
+and hselect_det = 
+  | HSDBase of Info.t * boolean * hse
+  | HSDRecur of Info.t * boolean * hse * hselect_det
+
+and hselect_nondet = 
+  | HSNBase of Info.t * boolean * hse
+  | HSNRecur of Info.t * boolean * hse * hselect_nondet
+
+val chp_of_hse : hse -> chp
 
 val info_of_boolean : boolean -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
 val info_of_variable : variable -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
-val info_of_program : program -> Info.t
+val info_of_chp : chp -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
 val info_of_select : select -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
@@ -86,3 +108,8 @@ val info_of_select_nondet : select_nondet -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
 val info_of_channel : channel -> Info.t
 (** [info_of_boolean e] returns the parsing info associated to expression [e]. *)
+
+val info_of_hse : hse -> Info.t
+val info_of_hselect : hselect -> Info.t
+val info_of_hselect_det : hselect_det -> Info.t
+val info_of_hselect_nondet : hselect_nondet -> Info.t

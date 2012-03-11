@@ -37,7 +37,7 @@ val format_boolean : boolean -> unit
 (** [format_boolean b] pretty prints [b] using [Util.format]. *)
 val format_variable : variable -> unit
 (** [format_variable v] pretty prints [v] using [Util.format]. *)
-val format_program : program -> unit
+val format_program : chp -> unit
 (** [format_program p] pretty prints [p] using [Util.format]. *)
 val format_select : select -> unit
 (** [format_select s] pretty prints [s] using [Util.format]. *)
@@ -56,7 +56,7 @@ val string_of_boolean : boolean -> string
 val string_of_variable : variable -> string
 (** [string_of_variable v] pretty prints [v] to a string. *)
 
-val string_of_program : program -> string
+val string_of_program : chp -> string
 (** [string_of_program p] pretty prints [p] to a string. *)
 
 val string_of_select : select -> string

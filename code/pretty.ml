@@ -37,8 +37,8 @@ let msg = Util.format
 let format_variable = function
   | VVar(_, name) -> msg "@[%s@]" name
   | VAck(_, name) -> msg "@[%s`a@]" name
-  | VTrue(_, name) -> msg "@[%s`b@]" name
-  | VFalse(_, name) -> msg "@[%s`c@]" name
+  | VTrue(_, name) -> msg "@[%s`t@]" name
+  | VFalse(_, name) -> msg "@[%s`f@]" name
 
 let rec format_channel = function
   | CSend(_, name, b) -> msg "@[%s!" name;
@@ -112,12 +112,12 @@ and format_select = function
 and format_select_det = function
   | SDBase(_, b, p) -> msg "@[";
       format_boolean b;
-      msg "@ -> @ ";
+      msg "@ ->@ ";
       format_program p;
       msg "@]"
   | SDRecur(_, b, p, next) -> msg "@[";
       format_boolean b;
-      msg "@ -> @ ";
+      msg "@ ->@ ";
       format_program p;
       msg "@ []@ @]";
       format_select_det next
@@ -125,12 +125,12 @@ and format_select_det = function
 and format_select_nondet = function
   | SNBase(_, b, p) -> msg "@[";
       format_boolean b;
-      msg "@ -> @ ";
+      msg "@ ->@ ";
       format_program p;
       msg "@]"
   | SNRecur(_, b, p, next) -> msg "@[";
       format_boolean b;
-      msg "@ -> @ ";
+      msg "@ ->@ ";
       format_program p;
       msg "@ |@ @]";
       format_select_nondet next

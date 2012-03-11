@@ -54,7 +54,7 @@ let go' prog () =
       begin
         let _ = Lexer.setup fn in
         let lexbuf = Lexing.from_string (Util.read fn) in
-        let ast : Syntax.program =
+        let ast : Syntax.chp =
           try Parser.program Lexer.main lexbuf with
             | Parsing.Parse_error ->
               (Error.error
@@ -70,6 +70,9 @@ let go' prog () =
           print_string (Pretty.string_of_program ast);
           print_string "\n";
           print_string (labels_to_string labels);
+          print_string "\n";
+          let hse = Translate.translate labels ast in
+          print_string (Pretty.string_of_program (Syntax.chp_of_hse hse));
           print_string "\n";
           ()
         with Direction.DirectionException(s) ->

@@ -35,7 +35,7 @@ open Syntax
 (* helpers for merging parsing info *)
 let m = Info.imerge 
 let mb b1 b2 = m (info_of_boolean b1) (info_of_boolean b2) 
-let mp p1 p2 = m (info_of_program p1) (info_of_program p2) 
+let mp p1 p2 = m (info_of_chp p1) (info_of_chp p2) 
 let mc c1 c2 = m (info_of_channel c1) (info_of_channel c2) 
 
 let syntax_error i s = 
@@ -51,14 +51,13 @@ let syntax_error i s =
 %token <Info.t> GETS STAR SEQ PAR SKIP
 %token <Info.t> LBRACK RBRACK THICKBAR THINBAR ARROW
 %token <Info.t> BANG QMARK DOT
-%token <Info.t> CHANACK CHANTRUE CHANFALSE
 
 %token <Info.t * string> UIDENT LIDENT
 %token <Info.t * bool> BOOLEAN
 %token <Info.t> ERROR
 
 %start program
-%type <Syntax.program> program
+%type <Syntax.chp> program
 
 %%
 
@@ -126,7 +125,7 @@ select:
 
 det_select:
   | boolean ARROW program
-    { let i = m (info_of_boolean $1) (info_of_program $3) in
+    { let i = m (info_of_boolean $1) (info_of_chp $3) in
       SDBase(i, $1, $3) }
   | boolean ARROW program THICKBAR det_select
     { let i = m (info_of_boolean $1) (info_of_select_det $5) in
@@ -136,9 +135,9 @@ nondet_select:
   /* The base case here is larger to prevent a reduce/reduce conflict over
    * [b -> p], so this way, [b -> p] will always be det_select */
   | boolean ARROW program THINBAR boolean ARROW program
-    { let i = m (info_of_boolean $5) (info_of_program $7) in
+    { let i = m (info_of_boolean $5) (info_of_chp $7) in
       let base = SNBase(i, $5, $7) in
-	  let i' = m (info_of_boolean $1) (info_of_program $3) in
+	  let i' = m (info_of_boolean $1) (info_of_chp $3) in
 	  SNRecur(i', $1, $3, base) }
   | boolean ARROW program THINBAR nondet_select
     { let i = m (info_of_boolean $1) (info_of_select_nondet $5) in
